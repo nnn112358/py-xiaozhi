@@ -4,44 +4,44 @@ layout: home
 
 hero:
   name: "PY-XIAOZHI"
-  tagline: py-xiaozhi 是一个使用 Python 实现的小智语音客户端，旨在通过代码学习和在没有硬件条件下体验 AI 小智的语音功能。
+  tagline: py-xiaozhi は Python で実装された小智音声クライアントで、コード学習と、ハードウェア条件がない環境での AI 小智の音声機能体験を目的としています。
   actions:
     - theme: brand
-      text: 开始使用
-      link: /guide/00_文档目录
+      text: 使用開始
+      link: /guide/00_ドキュメント目次
     - theme: alt
-      text: 查看源码
+      text: ソースコード表示
       link: https://github.com/huangjunsen0406/py-xiaozhi
 
 features:
-  - title: AI语音交互
-    details: 支持语音输入与识别，实现智能人机交互，提供自然流畅的对话体验。
-  - title: 视觉多模态
-    details: 支持图像识别和处理，提供多模态交互能力，理解图像内容。
-  - title: IoT 设备集成
-    details: 支持智能家居设备控制，包括灯光、音量、温度传感器等，集成Home Assistant智能家居平台，提供倒计时器功能，内置多种虚拟设备和物理设备驱动，可轻松扩展。
-  - title: 联网音乐播放
-    details: 基于pygame实现的高性能音乐播放器，支持播放／暂停／停止、进度控制、歌词显示和本地缓存，提供更稳定的音乐播放体验。
-  - title: 语音唤醒
-    details: 支持唤醒词激活交互，免去手动操作的烦恼（默认关闭需要手动开启）。
-  - title: 自动对话模式
-    details: 实现连续对话体验，提升用户交互流畅度。
-  - title: 图形化界面
-    details: 提供直观易用的 GUI，支持小智表情与文本显示，增强视觉体验。
-  - title: 命令行模式
-    details: 支持 CLI 运行，适用于嵌入式设备或无 GUI 环境。
-  - title: 跨平台支持
-    details: 兼容 Windows 10+、macOS 10.15+ 和 Linux 系统，随时随地使用。
-  - title: 音量控制
-    details: 支持音量调节，适应不同环境需求，统一声音控制接口。
-  - title: 加密音频传输
-    details: 支持 WSS 协议，保障音频数据的安全性，防止信息泄露。
-  - title: 自动验证码处理
-    details: 首次使用时，程序自动复制验证码并打开浏览器，简化用户操作。
+  - title: AI音声インタラクション
+    details: 音声入力と認識をサポートし、インテリジェントな人機交互を実現、自然で流暢な対話体験を提供。
+  - title: 視覚マルチモーダル
+    details: 画像認識と処理をサポートし、マルチモーダル交互作用能力を提供、画像内容を理解。
+  - title: IoT デバイス統合
+    details: スマートホームデバイス制御をサポート、照明、音量、温度センサーなどを含み、Home Assistant スマートホームプラットフォームを統合、カウントダウンタイマー機能を提供、複数の仮想デバイスと物理デバイスドライバーを内蔵、簡単に拡張可能。
+  - title: ネットワーク音楽再生
+    details: pygame ベースの高性能音楽プレーヤーを実装、再生/一時停止/停止、進行制御、歌詞表示とローカルキャッシュをサポート、より安定した音楽再生体験を提供。
+  - title: 音声ウェイクアップ
+    details: ウェイクワードによる交互作用の起動をサポート、手動操作の煩わしさを解消（デフォルトでは無効、手動で有効化が必要）。
+  - title: 自動対話モード
+    details: 連続対話体験を実現し、ユーザー交互作用の流暢性を向上。
+  - title: グラフィカルインターフェース
+    details: 直感的で使いやすい GUI を提供、小智の表情とテキスト表示をサポート、視覚体験を強化。
+  - title: コマンドラインモード
+    details: CLI 実行をサポート、組み込みデバイスや GUI なし環境に適用。
+  - title: クロスプラットフォームサポート
+    details: Windows 10+、macOS 10.15+ と Linux システムに対応、いつでもどこでも使用可能。
+  - title: 音量制御
+    details: 音量調整をサポート、異なる環境ニーズに適応、統一された音声制御インターフェース。
+  - title: 暗号化音声伝送
+    details: WSS プロトコルをサポート、音声データのセキュリティを保障、情報漏洩を防止。
+  - title: 自動認証コード処理
+    details: 初回使用時、プログラムが自動で認証コードをコピーしてブラウザを開き、ユーザー操作を簡素化。
 ---
 
 <div class="developers-section">
-  <p>感谢以下开发者对 py-xiaozhi 作出的贡献</p>
+  <p>py-xiaozhi への貢献をいただいた以下の開発者の皆様に感謝します</p>
   
   <div class="contributors-wrapper">
     <a href="https://github.com/huangjunsen0406/py-xiaozhi/graphs/contributors" class="contributors-link">
@@ -50,8 +50,8 @@ features:
   </div>
   
   <div class="developers-actions">
-    <a href="/py-xiaozhi/contributors" class="dev-button">查看特别贡献者</a>
-    <a href="/py-xiaozhi/contributing" class="dev-button outline">如何参与贡献</a>
+    <a href="/py-xiaozhi/contributors" class="dev-button">特別貢献者を表示</a>
+    <a href="/py-xiaozhi/contributing" class="dev-button outline">貢献に参加する方法</a>
   </div>
 
 </div>
