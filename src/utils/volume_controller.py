@@ -1,3 +1,9 @@
+"""
+音量制御モジュール
+
+Windows、macOS、Linuxの各プラットフォームで動作する統一的な音量制御インターフェースを提供します。
+プラットフォーム固有の音量制御APIを抽象化し、シンプルなAPIで音量の取得・設定を可能にします。
+"""
 import logging
 import platform
 import re
@@ -8,24 +14,37 @@ from typing import Any, Callable, List, Optional
 
 
 class VolumeController:
-    """跨平台音量控制器."""
+    """クロスプラットフォーム音量コントローラー.
+    
+    Windows、macOS、Linux で動作する統一的な音量制御インターフェースを提供します。
+    各プラットフォーム固有の音量制御メソッドを自動的に検出し、利用可能な
+    最適な方法を使用して音量を制御します。
+    
+    Attributes:
+        DEFAULT_VOLUME: デフォルト音量（70%）
+        current_platform: 現在のプラットフォーム名
+        get_volume: 音量取得メソッド
+        set_volume: 音量設定メソッド
+    """
 
-    # 默认音量常量
+    # デフォルト音量定数
     DEFAULT_VOLUME = 70
 
-    # 平台特定的方法映射
+    # プラットフォーム別の初期化メソッドマッピング
     PLATFORM_INIT = {
         "Windows": "_init_windows",
         "Darwin": "_init_macos",
         "Linux": "_init_linux",
     }
 
+    # プラットフォーム別の音量制御メソッドマッピング
     VOLUME_METHODS = {
         "Windows": ("_get_windows_volume", "_set_windows_volume"),
         "Darwin": ("_get_macos_volume", "_set_macos_volume"),
         "Linux": ("_get_linux_volume", "_set_linux_volume"),
     }
 
+    # Linux用音量制御メソッドマッピング
     LINUX_VOLUME_METHODS = {
         "pactl": ("_get_pactl_volume", "_set_pactl_volume"),
         "wpctl": ("_get_wpctl_volume", "_set_wpctl_volume"),
@@ -33,7 +52,7 @@ class VolumeController:
         "alsamixer": (None, "_set_alsamixer_volume"),
     }
 
-    # 平台特定的模块依赖
+    # プラットフォーム別のモジュール依存関係
     PLATFORM_MODULES = {
         "Windows": {
             "pycaw": "pycaw.pycaw",
@@ -47,7 +66,7 @@ class VolumeController:
     }
 
     def __init__(self):
-        """初始化音量控制器."""
+        """音量コントローラーを初期化."""
         self.logger = logging.getLogger("VolumeController")
         self.system = platform.system()
         self.is_arm = platform.machine().startswith(("arm", "aarch"))

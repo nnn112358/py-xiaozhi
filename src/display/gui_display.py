@@ -58,7 +58,7 @@ from PyQt5.QtWidgets import (
 
 from src.utils.config_manager import ConfigManager
 
-# 根据不同操作系统处理 pynput 导入
+# 異なるOSでのpynputインポートを処理
 try:
     if platform.system() == "Windows":
         from pynput import keyboard as pynput_keyboard
@@ -75,64 +75,71 @@ from src.display.base_display import BaseDisplay
 
 
 def restart_program():
-    """重启当前 Python 程序，支持打包环境。"""
+    """現在のPythonプログラムを再起動します。パッケージ環境に対応しています。"""
     try:
         python = sys.executable
-        print(f"尝试使用以下命令重启: {python} {sys.argv}")
+        print(f"以下のコマンドで再起動を試行します: {python} {sys.argv}")
 
-        # 尝试关闭 Qt 应用，虽然 execv 会接管，但这样做更规范
+        # Qtアプリケーションを閉じる試行。execvが引き継ぐが、より規範的な方法
         app = QApplication.instance()
         if app:
             app.quit()
 
-        # 在打包环境中使用不同的重启方法
+        # パッケージ環境では異なる再起動方法を使用
         if getattr(sys, "frozen", False):
-            # 打包环境下，使用subprocess启动新进程
+            # パッケージ環境ではsubprocessで新しいプロセスを開始
             import subprocess
 
-            # 构建完整的命令行
+            # 完全なコマンドラインを構築
             if sys.platform.startswith("win"):
-                # Windows下使用detached创建独立进程
+                # Windowsではdetachedで独立プロセスを作成
                 executable = os.path.abspath(sys.executable)
                 subprocess.Popen(
                     [executable] + sys.argv[1:],
                     creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
                 )
             else:
-                # Linux/Mac下
+                # Linux/Macの場合
                 executable = os.path.abspath(sys.executable)
                 subprocess.Popen([executable] + sys.argv[1:], start_new_session=True)
 
-            # 退出当前进程
+            # 現在のプロセスを終了
             sys.exit(0)
         else:
-            # 非打包环境，使用os.execv
+            # 非パッケージ環境ではos.execvを使用
             os.execv(python, [python] + sys.argv)
     except Exception as e:
-        print(f"重启程序失败: {e}")
-        logging.getLogger("Display").error(f"重启程序失败: {e}", exc_info=True)
-        # 如果重启失败，可以选择退出或通知用户
-        sys.exit(1)  # 或者弹出一个错误消息框
+        print(f"プログラムの再起動に失敗しました: {e}")
+        logging.getLogger("Display").error(f"プログラムの再起動に失敗しました: {e}", exc_info=True)
+        # 再起動に失敗した場合、終了またはユーザーに通知
+        sys.exit(1)  # またはエラーメッセージボックスを表示
 
 
-# 创建兼容的元类
+# 互換性のあるメタクラスを作成
 class CombinedMeta(type(QObject), ABCMeta):
     pass
 
 
 class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
+    """PyQt5を使用したGUIディスプレイ実装.
+    
+    グラフィカルユーザーインターフェースを提供し、
+    音量制御、ステータス表示、感情アニメーション、
+    システムトレイ等の機能を提供します。
+    """
+    
     def __init__(self):
-        # 重要：调用 super() 处理多重继承
+        # 重要：多重継承を処理するためにsuper()を呼び出し
         super().__init__()
-        QObject.__init__(self)  # 调用 QObject 初始化
+        QObject.__init__(self)  # QObjectの初期化を呼び出し
 
-        # 初始化日志
+        # ログの初期化
         self.logger = logging.getLogger("Display")
 
         self.app = None
         self.root = None
 
-        # 一些提前初始化的变量
+        # 事前初期化する変数
         self.status_label = None
         self.emotion_label = None
         self.tts_text_label = None
@@ -145,34 +152,34 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
         self.stackedWidget = None
         self.nav_tab_bar = None
 
-        # 添加表情动画对象
+        # 感情アニメーションオブジェクトを追加
         self.emotion_movie = None
-        # 新增表情动画特效相关变量
-        self.emotion_effect = None  # 表情透明度特效
-        self.emotion_animation = None  # 表情动画对象
-        self.next_emotion_path = None  # 下一个待显示的表情
-        self.is_emotion_animating = False  # 是否正在进行表情切换动画
+        # 感情アニメーションエフェクト関連変数を新規追加
+        self.emotion_effect = None  # 感情の透明度エフェクト
+        self.emotion_animation = None  # 感情アニメーションオブジェクト
+        self.next_emotion_path = None  # 次に表示する感情
+        self.is_emotion_animating = False  # 感情切り替えアニメーション実行中かどうか
 
-        # 音量控制相关
-        self.volume_label = None  # 音量百分比标签
-        self.volume_control_available = False  # 系统音量控制是否可用
-        self.volume_controller_failed = False  # 标记音量控制是否失败
+        # 音量制御関連
+        self.volume_label = None  # 音量パーセントラベル
+        self.volume_control_available = False  # システム音量制御が利用可能かどうか
+        self.volume_controller_failed = False  # 音量制御が失敗したかどうかをマーク
 
-        self.is_listening = False  # 是否正在监听
+        self.is_listening = False  # 監視中かどうか
 
-        # 设置页面控件
+        # 設定ページのコントロール
         self.wakeWordEnableSwitch = None
         self.wakeWordsLineEdit = None
         self.saveSettingsButton = None
-        # 新增网络和设备ID控件引用
+        # ネットワークとデバイスIDコントロールの参照を新規追加
         self.deviceIdLineEdit = None
         self.wsProtocolComboBox = None
         self.wsAddressLineEdit = None
         self.wsTokenLineEdit = None
-        # 新增OTA地址控件引用
+        # OTAアドレスコントロールの参照を新規追加
         self.otaProtocolComboBox = None
         self.otaAddressLineEdit = None
-        # Home Assistant 控件引用
+        # Home Assistantコントロールの参照
         self.haProtocolComboBox = None
         self.ha_server = None
         self.ha_port = None
@@ -182,10 +189,10 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
         self.is_muted = False
         self.pre_mute_volume = self.current_volume
 
-        # 对话模式标志
+        # 対話モードフラグ
         self.auto_mode = False
 
-        # 回调函数
+        # コールバック関数
         self.button_press_callback = None
         self.button_release_callback = None
         self.status_update_callback = None
@@ -196,40 +203,40 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
         self.abort_callback = None
         self.send_text_callback = None
 
-        # 更新队列
+        # 更新キュー
         self.update_queue = queue.Queue()
 
-        # 运行标志
+        # 実行フラグ
         self._running = True
 
-        # 键盘监听器
+        # キーボードリスナー
         self.keyboard_listener = None
-        # 添加按键状态集合
+        # キー状態セットを追加
         self.pressed_keys = set()
 
-        # 滑动手势相关
+        # スライドジェスチャー関連
         self.last_mouse_pos = None
 
-        # 保存定时器引用以避免被销毁
+        # 破棄されることを防ぐためタイマーの参照を保存
         self.update_timer = None
         self.volume_update_timer = None
 
-        # 动画相关
+        # アニメーション関連
         self.current_effect = None
         self.current_animation = None
         self.animation = None
         self.fade_widget = None
         self.animated_widget = None
 
-        # 检查系统音量控制是否可用
+        # システム音量制御が利用可能かチェック
         self.volume_control_available = (
             hasattr(self, "volume_controller") and self.volume_controller is not None
         )
 
-        # 尝试获取一次系统音量，检测音量控制是否正常工作
+        # システム音量を一度取得し、音量制御が正常に動作するかテスト
         self.get_current_volume()
 
-        # 新增iotPage相关变量
+        # 新規iotPage関連変数
         self.devices_list = []
         self.device_labels = {}
         self.history_title = None
@@ -237,20 +244,21 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
         self.ha_update_timer = None
         self.device_states = {}
 
-        # 新增系统托盘相关变量
+        # 新規システムトレイ関連変数
         self.tray_icon = None
         self.tray_menu = None
-        self.current_status = ""  # 当前状态，用于判断颜色变化
-        self.is_connected = True  # 连接状态标志
+        self.current_status = ""  # 現在の状態、色の変化を判定するため
+        self.is_connected = True  # 接続状態フラグ
 
     def eventFilter(self, source, event):
+        """イベントフィルター。音量スライダーのクリック処理をカストマイズします。"""
         if source == self.volume_scale and event.type() == QEvent.MouseButtonPress:
             if event.button() == Qt.LeftButton:
                 slider = self.volume_scale
                 opt = QStyleOptionSlider()
                 slider.initStyleOption(opt)
 
-                # 获取滑块手柄和轨道的矩形区域
+                # スライダーのハンドルとトラックの矩形領域を取得
                 handle_rect = slider.style().subControlRect(
                     QStyle.CC_Slider, opt, QStyle.SC_SliderHandle, slider
                 )
@@ -258,18 +266,18 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
                     QStyle.CC_Slider, opt, QStyle.SC_SliderGroove, slider
                 )
 
-                # 如果点击在手柄上，则让默认处理器处理拖动
+                # ハンドルをクリックした場合、デフォルトハンドラーにドラッグ処理を任せる
                 if handle_rect.contains(event.pos()):
                     return False
 
-                # 计算点击位置相对于轨道的位置
+                # クリック位置がトラックに対して相対的にどこにあるか計算
                 if slider.orientation() == Qt.Horizontal:
-                    # 确保点击在有效的轨道范围内
+                    # クリックが有効なトラック範囲内であることを確認
                     if (
                         event.pos().x() < groove_rect.left()
                         or event.pos().x() > groove_rect.right()
                     ):
-                        return False  # 点击在轨道外部
+                        return False  # トラック外でのクリック
                     pos = event.pos().x() - groove_rect.left()
                     max_pos = groove_rect.width()
                 else:
@@ -277,38 +285,38 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
                         event.pos().y() < groove_rect.top()
                         or event.pos().y() > groove_rect.bottom()
                     ):
-                        return False  # 点击在轨道外部
+                        return False  # トラック外でのクリック
                     pos = groove_rect.bottom() - event.pos().y()
                     max_pos = groove_rect.height()
 
-                if max_pos > 0:  # 避免除以零
+                if max_pos > 0:  # ゼロ除算を防ぐ
                     value_range = slider.maximum() - slider.minimum()
-                    # 根据点击位置计算新的值
+                    # クリック位置に基づいて新しい値を計算
                     new_value = slider.minimum() + round((value_range * pos) / max_pos)
 
-                    # 直接设置滑块的值
+                    # スライダーの値を直接設定
                     slider.setValue(int(new_value))
 
-                    return True  # 表示事件已处理
+                    return True  # イベントが処理されたことを示す
 
         return super().eventFilter(source, event)
 
     def _setup_navigation(self):
-        """设置导航标签栏 (QTabBar)"""
-        # 使用 addTab 添加标签
-        self.nav_tab_bar.addTab("聊天")  # index 0
-        self.nav_tab_bar.addTab("设备管理")  # index 1
-        self.nav_tab_bar.addTab("参数配置")  # index 2
+        """ナビゲーションタブバー(QTabBar)を設定します。"""
+        # addTabでタブを追加
+        self.nav_tab_bar.addTab("チャット")  # index 0
+        self.nav_tab_bar.addTab("デバイス管理")  # index 1
+        self.nav_tab_bar.addTab("パラメータ設定")  # index 2
 
-        # 将 QTabBar 的 currentChanged 信号连接到处理函数
+        # QTabBarのcurrentChangedシグナルを処理関数に接続
         self.nav_tab_bar.currentChanged.connect(self._on_navigation_index_changed)
 
-        # 设置默认选中项 (通过索引)
-        self.nav_tab_bar.setCurrentIndex(0)  # 默认选中第一个标签
+        # デフォルト選択項目を設定（インデックス経由）
+        self.nav_tab_bar.setCurrentIndex(0)  # デフォルトで第1タブを選択
 
     def _on_navigation_index_changed(self, index: int):
-        """处理导航标签变化 (通过索引)"""
-        # 映射回 routeKey 以便复用动画和加载逻辑
+        """ナビゲーションタブの変更を処理（インデックス経由）。"""
+        # アニメーションと読み込みロジックを再利用するためにrouteKeyにマッピング
         index_to_routeKey = {
             0: "mainInterface",
             1: "iotInterface",
@@ -317,20 +325,20 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
         routeKey = index_to_routeKey.get(index)
 
         if routeKey is None:
-            self.logger.warning(f"未知的导航索引: {index}")
+            self.logger.warning(f"不明なナビゲーションインデックス: {index}")
             return
 
-        target_index = index  # 直接使用索引
+        target_index = index  # インデックスを直接使用
         if target_index == self.stackedWidget.currentIndex():
             return
 
         self.stackedWidget.setCurrentIndex(target_index)
 
-        # 如果切换到设置页面，加载设置
+        # 設定ページに切り替えた場合、設定を読み込み
         if routeKey == "settingInterface":
             self._load_settings()
 
-        # 如果切换到设备管理页面，加载设备
+        # デバイス管理ページに切り替えた場合、デバイスを読み込み
         if routeKey == "iotInterface":
             self._load_iot_devices()
 
@@ -346,7 +354,10 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
         abort_callback: Optional[Callable] = None,
         send_text_callback: Optional[Callable] = None,
     ):
-        """设置回调函数."""
+        """コールバック関数を設定します.
+        
+        GUIインターフェースの各イベントに対するハンドラを登録します。
+        """
         self.button_press_callback = press_callback
         self.button_release_callback = release_callback
         self.status_update_callback = status_callback
@@ -357,8 +368,8 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
         self.abort_callback = abort_callback
         self.send_text_callback = send_text_callback
 
-        # 在初始化后将状态监听添加到应用程序的状态变化回调中
-        # 这样当设备状态变化时，我们可以更新系统托盘图标
+        # 初期化後に状態監視をアプリケーションの状態変更コールバックに追加
+        # これによりデバイス状態が変更されたときにシステムトレイアイコンを更新できる
         from src.application import Application
 
         app = Application.get_instance()
@@ -367,158 +378,158 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
 
     def _on_state_changed(self, state):
         """监听设备状态变化."""
-        # 设置连接状态标志
+        # 接続状態フラグを設定
         from src.constants.constants import DeviceState
 
-        # 检查是否连接中或已连接
-        # (CONNECTING, LISTENING, SPEAKING 表示已连接)
+        # 接続中または接続済みかをチェック
+        # (CONNECTING, LISTENING, SPEAKING は接続済みを表示)
         if state == DeviceState.CONNECTING:
             self.is_connected = True
         elif state in [DeviceState.LISTENING, DeviceState.SPEAKING]:
             self.is_connected = True
         elif state == DeviceState.IDLE:
-            # 从应用程序中获取协议实例，检查WebSocket连接状态
+            # アプリケーションからプロトコルインスタンスを取得し、WebSocket接続状態をチェック
             from src.application import Application
 
             app = Application.get_instance()
             if app and app.protocol:
-                # 检查协议是否连接
+                # プロトコルが接続しているかチェック
                 self.is_connected = app.protocol.is_audio_channel_opened()
             else:
                 self.is_connected = False
 
-        # 更新状态的处理已经在 update_status 方法中完成
+        # ステータス更新の処理はすでに update_status メソッド内で完了
 
     def _process_updates(self):
-        """处理更新队列."""
+        """更新キューを処理."""
         if not self._running:
             return
 
         try:
             while True:
                 try:
-                    # 非阻塞方式获取更新
+                    # ノンブロッキング方式で更新を取得
                     update_func = self.update_queue.get_nowait()
                     update_func()
                     self.update_queue.task_done()
                 except queue.Empty:
                     break
         except Exception as e:
-            self.logger.error(f"处理更新队列时发生错误: {e}")
+            self.logger.error(f"更新キュー処理中にエラーが発生: {e}")
 
     def _on_manual_button_press(self):
-        """手动模式按钮按下事件处理."""
+        """手動モードボタン押下イベント処理."""
         try:
-            # 更新按钮文本为"松开以停止"
+            # ボタンテキストを"放して停止"に更新
             if self.manual_btn and self.manual_btn.isVisible():
                 self.manual_btn.setText("松开以停止")
 
-            # 调用回调函数
+            # コールバック関数を呼び出し
             if self.button_press_callback:
                 self.button_press_callback()
         except Exception as e:
-            self.logger.error(f"按钮按下回调执行失败: {e}")
+            self.logger.error(f"ボタン押下コールバック実行失敗: {e}")
 
     def _on_manual_button_release(self):
-        """手动模式按钮释放事件处理."""
+        """手動モードボタンリリースイベント処理."""
         try:
-            # 更新按钮文本为"按住后说话"
+            # ボタンテキストを"押したまま話す"に更新
             if self.manual_btn and self.manual_btn.isVisible():
                 self.manual_btn.setText("按住后说话")
 
-            # 调用回调函数
+            # コールバック関数を呼び出し
             if self.button_release_callback:
                 self.button_release_callback()
         except Exception as e:
-            self.logger.error(f"按钮释放回调执行失败: {e}")
+            self.logger.error(f"ボタンリリースコールバック実行失敗: {e}")
 
     def _on_auto_button_click(self):
-        """自动模式按钮点击事件处理."""
+        """自動モードボタンクリックイベント処理."""
         try:
             if self.auto_callback:
                 self.auto_callback()
         except Exception as e:
-            self.logger.error(f"自动模式按钮回调执行失败: {e}")
+            self.logger.error(f"自動モードボタンコールバック実行失敗: {e}")
 
     def _on_abort_button_click(self):
-        """处理中止按钮点击事件."""
+        """中止ボタンクリックイベントを処理."""
         if self.abort_callback:
             self.abort_callback()
 
     def _on_mode_button_click(self):
-        """对话模式切换按钮点击事件."""
+        """対話モード切り替えボタンクリックイベント."""
         try:
-            # 检查是否可以切换模式（通过回调函数询问应用程序当前状态）
+            # モード切り替えが可能かチェック（コールバック関数でアプリケーションの現在状態を問い合わせ）
             if self.mode_callback:
-                # 如果回调函数返回False，表示当前不能切换模式
+                # コールバック関数がFalseを返す場合、現在モードを切り替えられないことを表示
                 if not self.mode_callback(not self.auto_mode):
                     return
 
-            # 切换模式
+            # モード切り替え
             self.auto_mode = not self.auto_mode
 
-            # 更新按钮显示
+            # ボタン表示を更新
             if self.auto_mode:
-                # 切换到自动模式
+                # 自動モードに切り替え
                 self.update_mode_button_status("自动对话")
 
-                # 隐藏手动按钮，显示自动按钮
+                # 手動ボタンを非表示、自動ボタンを表示
                 self.update_queue.put(self._switch_to_auto_mode)
             else:
-                # 切换到手动模式
+                # 手動モードに切り替え
                 self.update_mode_button_status("手动对话")
 
-                # 隐藏自动按钮，显示手动按钮
+                # 自動ボタンを非表示、手動ボタンを表示
                 self.update_queue.put(self._switch_to_manual_mode)
 
         except Exception as e:
-            self.logger.error(f"模式切换按钮回调执行失败: {e}")
+            self.logger.error(f"モード切り替えボタンコールバック実行失敗: {e}")
 
     def _switch_to_auto_mode(self):
-        """切换到自动模式的UI更新."""
+        """自動モードにUI切り替え更新."""
         if self.manual_btn and self.auto_btn:
             self.manual_btn.hide()
             self.auto_btn.show()
 
     def _switch_to_manual_mode(self):
-        """切换到手动模式的UI更新."""
+        """手動モードにUI切り替え更新."""
         if self.manual_btn and self.auto_btn:
             self.auto_btn.hide()
             self.manual_btn.show()
 
     def update_status(self, status: str):
-        """更新状态文本 (只更新主状态)"""
+        """ステータステキストを更新 (メインステータスのみ更新)"""
         full_status_text = f"状态: {status}"
         self.update_queue.put(
             lambda: self._safe_update_label(self.status_label, full_status_text)
         )
 
-        # 更新系统托盘图标
+        # システムトレイアイコンを更新
         if status != self.current_status:
             self.current_status = status
             self.update_queue.put(lambda: self._update_tray_icon(status))
 
     def update_text(self, text: str):
-        """更新TTS文本."""
+        """TTSテキストを更新."""
         self.update_queue.put(
             lambda: self._safe_update_label(self.tts_text_label, text)
         )
 
     def update_emotion(self, emotion_path: str):
-        """更新表情动画."""
-        # 如果路径相同，不重复设置表情
+        """表情アニメーションを更新."""
+        # パスが同じ場合、表情を重複設定しない
         if (
             hasattr(self, "_last_emotion_path")
             and self._last_emotion_path == emotion_path
         ):
             return
 
-        # 记录当前设置的路径
+        # 現在設定されているパスを記録
         self._last_emotion_path = emotion_path
 
-        # 确保在主线程中处理UI更新
+        # メインスレッドでUI更新を処理することを保証
         if QApplication.instance().thread() != QThread.currentThread():
-            # 如果不在主线程，使用信号-槽方式或QMetaObject调用在主线程执行
+            # メインスレッドにいない場合、シグナルスロット方式またはQMetaObject呼び出しでメインスレッドで実行
             QMetaObject.invokeMethod(
                 self,
                 "_update_emotion_safely",
@@ -526,19 +537,19 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
                 Q_ARG(str, emotion_path),
             )
         else:
-            # 已经在主线程，直接执行
+            # すでにメインスレッド、直接実行
             self._update_emotion_safely(emotion_path)
 
-    # 新增一个槽函数，用于在主线程中安全地更新表情
+    # メインスレッドで安全に表情を更新するためのスロット関数を新規追加
     @pyqtSlot(str)
     def _update_emotion_safely(self, emotion_path: str):
-        """在主线程中安全地更新表情，避免线程问题."""
+        """メインスレッドで安全に表情を更新、スレッド問題を回避."""
         if self.emotion_label:
-            self.logger.info(f"设置表情GIF: {emotion_path}")
+            self.logger.info(f"表情GIFを設定: {emotion_path}")
             try:
                 self._set_emotion_gif(self.emotion_label, emotion_path)
             except Exception as e:
-                self.logger.error(f"设置表情GIF时发生错误: {str(e)}")
+                self.logger.error(f"表情GIF設定時にエラーが発生: {str(e)}")
 
     def _set_emotion_gif(self, label, gif_path):
         """设置表情GIF动画，带渐变效果."""
@@ -546,11 +557,11 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
         if not label or self.root.isHidden():
             return
 
-        # 检查GIF是否已经在当前标签上显示
+        # 現在のラベルにGIFがすでに表示されているかチェック
         if hasattr(label, "current_gif_path") and label.current_gif_path == gif_path:
             return
 
-        # 记录当前GIF路径到标签对象
+        # 現在のGIFパスをラベルオブジェクトに記録
         label.current_gif_path = gif_path
 
         try:
@@ -586,14 +597,14 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
                 self.emotion_animation.setStartValue(1.0)
                 self.emotion_animation.setEndValue(0.25)
 
-                # 当淡出完成后，设置新的GIF并开始淡入
+                # フェードアウト完了後、新しいGIFを設定してフェードインを開始
                 def on_fade_out_finished():
                     try:
-                        # 停止当前GIF
+                        # 現在のGIFを停止
                         if self.emotion_movie:
                             self.emotion_movie.stop()
 
-                        # 设置新的GIF并淡入
+                        # 新しいGIFを設定してフェードイン
                         self._set_new_emotion_gif(label, gif_path)
                     except Exception as e:
                         self.logger.error(f"淡出动画完成后设置GIF失败: {e}")
@@ -605,12 +616,12 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
                 # 开始淡出动画
                 self.emotion_animation.start()
             else:
-                # 如果没有之前的动画，直接设置新的GIF并淡入
+                # 以前のアニメーションがない場合、直接新しいGIFを設定してフェードイン
                 self._set_new_emotion_gif(label, gif_path)
 
         except Exception as e:
             self.logger.error(f"更新表情GIF动画失败: {e}")
-            # 如果GIF加载失败，尝试显示默认表情
+            # GIF読み込みが失敗した場合、デフォルトの表情を表示しようと試みる
             try:
                 label.setText("😊")
             except Exception:
@@ -620,11 +631,11 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
     def _set_new_emotion_gif(self, label, gif_path):
         """设置新的GIF动画并执行淡入效果."""
         try:
-            # 维护GIF缓存
+            # GIFキャッシュを維持
             if not hasattr(self, "_gif_cache"):
                 self._gif_cache = {}
 
-            # 检查缓存中是否有该GIF
+            # キャッシュにこのGIFがあるかチェック
             if gif_path in self._gif_cache:
                 movie = self._gif_cache[gif_path]
             else:
@@ -642,7 +653,7 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
                 movie.setCacheMode(QMovie.CacheAll)
                 self._gif_cache[gif_path] = movie
 
-            # 保存GIF路径到movie对象，用于比较
+            # GIFパスをmovieオブジェクトに保存、比較用
             movie._gif_path = gif_path
 
             # 连接信号
@@ -660,10 +671,10 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
             # 设置动画到标签
             label.setMovie(movie)
 
-            # 设置QMovie的速度为110，使动画更流畅(默认是100)
+            # QMovieの速度を105に設定、アニメーションをよりスムーズに(デフォルトは100)
             movie.setSpeed(105)
 
-            # 确保不透明度是0（完全透明）
+            # 不透明度が0（完全透明）であることを保証
             if self.emotion_effect:
                 self.emotion_effect.setOpacity(0.0)
             else:
@@ -736,7 +747,7 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
                     if self.emotion_update_callback:
                         emotion = self.emotion_update_callback()
                         if emotion:
-                            # 直接调用update_emotion方法，它会处理重复检查
+                            # update_emotionメソッドを直接呼び出し、重複チェックを処理
                             self.update_emotion(emotion)
 
                 except Exception as e:
@@ -751,7 +762,7 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
 
         # 确保在主线程中停止定时器
         if QThread.currentThread() != QApplication.instance().thread():
-            # 如果在非主线程，使用 QMetaObject.invokeMethod 在主线程中执行
+            # 非メインスレッドの場合、QMetaObject.invokeMethodを使用してメインスレッドで実行
             if self.update_timer:
                 QMetaObject.invokeMethod(self.update_timer, "stop", Qt.QueuedConnection)
 
@@ -760,7 +771,7 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
                     self.ha_update_timer, "stop", Qt.QueuedConnection
                 )
         else:
-            # 已在主线程中，直接停止
+            # すでにメインスレッド内、直接停止
             if self.update_timer:
                 self.update_timer.stop()
 
@@ -776,16 +787,16 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
     def start(self):
         """启动GUI."""
         try:
-            # 确保QApplication实例在主线程中创建
+            # QApplicationインスタンスがメインスレッドで作成されることを保証
             self.app = QApplication.instance()
             if self.app is None:
                 self.app = QApplication(sys.argv)
 
-            # 设置UI默认字体
+            # UIデフォルトフォントを設定
             default_font = QFont("ASLantTermuxFont Mono", 12)
             self.app.setFont(default_font)
 
-            # 加载UI文件
+            # UIファイルを読み込み
             from PyQt5 import uic
 
             self.root = QWidget()
@@ -796,7 +807,7 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
 
             uic.loadUi(str(ui_path), self.root)
 
-            # 获取UI中的控件
+            # UI内のコントロールを取得
             self.status_label = self.root.findChild(QLabel, "status_label")
             self.emotion_label = self.root.findChild(QLabel, "emotion_label")
             self.tts_text_label = self.root.findChild(QLabel, "tts_text_label")
@@ -807,12 +818,12 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
 
             # 添加快捷键提示标签
             try:
-                # 查找主界面的布局
+                # メインインターフェースのレイアウトを検索
                 main_page = self.root.findChild(QWidget, "mainPage")
                 if main_page:
                     main_layout = main_page.layout()
                     if main_layout:
-                        # 创建快捷键提示标签
+                        # ショートカットキーのヒントラベルを作成
                         shortcut_label = QLabel(
                             "快捷键：Alt+Shift+V (按住说话) | Alt+Shift+A (自动对话) | "
                             "Alt+Shift+X (打断) | Alt+Shift+M (切换模式)"
@@ -829,28 +840,28 @@ class GuiDisplay(BaseDisplay, QObject, metaclass=CombinedMeta):
                         """
                         )
                         shortcut_label.setAlignment(Qt.AlignCenter)
-                        # 将标签添加到布局末尾
+                        # ラベルをレイアウトの末尾に追加
                         main_layout.addWidget(shortcut_label)
                         self.logger.info("已添加快捷键提示标签")
             except Exception as e:
                 self.logger.warning(f"添加快捷键提示标签失败: {e}")
 
-            # 获取IOT页面控件
+            # IOTページコントロールを取得
             self.iot_card = self.root.findChild(
                 QFrame, "iotPage"
-            )  # 注意这里使用 "iotPage" 作为ID
+            )  # ここでは "iotPage" をIDとして使用していることに注意
             if self.iot_card is None:
-                # 如果找不到 iotPage，尝试其他可能的名称
+                # iotPageが見つからない場合、他の可能な名前を試す
                 self.iot_card = self.root.findChild(QFrame, "iot_card")
                 if self.iot_card is None:
-                    # 如果还找不到，尝试在 stackedWidget 中获取第二个页面作为 iot_card
+                    # まだ見つからない場合、stackedWidgetで第2ページをiot_cardとして取得しようと試みる
                     self.stackedWidget = self.root.findChild(
                         QStackedWidget, "stackedWidget"
                     )
                     if self.stackedWidget and self.stackedWidget.count() > 1:
                         self.iot_card = self.stackedWidget.widget(
                             1
-                        )  # 索引1是第二个页面
+                        )  # インデックス 1 は第 2 ページ
                         self.logger.info(
                             f"使用 stackedWidget 的第2个页面作为 iot_card: {self.iot_card}"
                         )

@@ -18,11 +18,21 @@ logger = get_logger(__name__)
 
 
 class WakeWordDetector:
-    """唤醒词检测类."""
+    """起動ワード検出器クラス。
+    
+    音声認識モデル（Vosk）を使用して、特定の起動ワードを検出します。
+    中国語の音声認識結果を拼音変換し、簡体字とピンインの両方で照合します。
+    
+    特徴:
+    - 複数のピンインスタイルによる照合（標準、音調、頭文字、韻母）
+    - 編集距離と類似度を使用したファジーマッチング
+    - LRUキャッシュによるパフォーマンス最適化
+    - 重複検出を防ぐ最近のテキストキャッシュ
+    """
 
     def __init__(self):
-        """初始化唤醒词检测器."""
-        # 初始化基本属性
+        """起動ワード検出器を初期化します。"""
+        # 基本プロパティを初期化
         self.audio_codec = None
         self.on_detected_callbacks = []
         self.running = False
@@ -32,29 +42,29 @@ class WakeWordDetector:
         self.external_stream = False
         self.stream_lock = threading.Lock()
 
-        # 配置检查
+        # 設定確認
         config = ConfigManager.get_instance()
         if not config.get_config("WAKE_WORD_OPTIONS.USE_WAKE_WORD", False):
-            logger.info("唤醒词功能已禁用")
+            logger.info("起動ワード機能が無効にされています")
             self.enabled = False
             return
 
-        # 基本参数初始化（直接从配置获取）
+        # 基本パラメータを初期化（設定から直接取得）
         self.enabled = True
         self.sample_rate = AudioConfig.INPUT_SAMPLE_RATE
         self.buffer_size = AudioConfig.INPUT_FRAME_SIZE
         self.sensitivity = config.get_config("WAKE_WORD_OPTIONS.SENSITIVITY", 0.5)
 
-        # 唤醒词配置
+        # 起動ワード設定
         self.wake_words = config.get_config(
             "WAKE_WORD_OPTIONS.WAKE_WORDS",
             ["你好小明", "你好小智", "你好小天", "小爱同学", "贾维斯"],
         )
 
-        # 预计算拼音变体以提升性能
+        # パフォーマンス向上のためにピンインバリエーションを事前計算
         self.wake_word_patterns = self._build_wake_word_patterns()
 
-        # 匹配参数
+        # マッチングパラメータ
         self.similarity_threshold = config.get_config(
             "WAKE_WORD_OPTIONS.SIMILARITY_THRESHOLD", 0.8
         )
@@ -62,14 +72,14 @@ class WakeWordDetector:
             "WAKE_WORD_OPTIONS.MAX_EDIT_DISTANCE", 2
         )
 
-        # 性能优化：缓存最近的识别结果
+        # パフォーマンス最適化: 最近の認識結果をキャッシュ
         self._recent_texts = []
         self._max_recent_cache = 10
 
-        # 模型初始化
+        # モデル初期化
         self._init_model(config)
 
-        # 验证配置
+        # 設定験証
         self._validate_config()
 
     def _init_model(self, config):

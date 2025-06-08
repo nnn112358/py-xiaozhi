@@ -80,7 +80,7 @@ class DeviceLoadThread(QThread):
 
     def run(self):
         try:
-            # 检查线程是否应该继续运行
+            # スレッドが継続実行すべきかチェック
             if not self._is_running:
                 return
 
@@ -120,7 +120,7 @@ class DeviceLoadThread(QThread):
                 self.error_occurred.emit(error_msg)
                 return []
 
-            # 检查线程是否应该继续运行
+            # スレッドが継続実行すべきかチェック
             if not self._is_running:
                 return []
 
@@ -130,7 +130,7 @@ class DeviceLoadThread(QThread):
             # 过滤指定域的实体
             domain_entities = []
             for entity in entities:
-                # 检查线程是否应该继续运行
+                # スレッドが継続実行すべきかチェック
                 if not self._is_running:
                     return []
 

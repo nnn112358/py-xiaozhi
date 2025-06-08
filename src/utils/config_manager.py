@@ -1,3 +1,6 @@
+# システム設定管理モジュール
+# アプリケーションの設定ファイルの読み込み、保存、管理を行う
+
 import json
 import socket
 import threading
@@ -17,135 +20,207 @@ logger = get_logger(__name__)
 
 
 class ConfigManager:
-    """配置管理器 - 单例模式"""
+    """
+    設定管理クラス - シングルトンパターン
+    
+    アプリケーションの全設定を一元管理し、設定ファイルの読み書きを行う。
+    スレッドセーフなシングルトンパターンで実装されており、
+    アプリケーション全体で同一のインスタンスが使用される。
+    
+    主な機能:
+    - 設定ファイルの自動読み込み・保存
+    - デフォルト設定との統合
+    - 設定値の取得・更新
+    - デバイスID・クライアントIDの自動生成
+    - OTAサーバーからの最新設定取得
+    """
 
     _instance = None
     _lock = threading.Lock()
 
-    # 配置文件路径
+    # 設定ファイルのパス定義
     CONFIG_DIR = find_config_dir()
     if not CONFIG_DIR:
-        # 如果找不到配置目录，则使用项目根目录下的 config 文件夹
+        # 設定ディレクトリが見つからない場合、プロジェクトルート下のconfigフォルダを使用
         CONFIG_DIR = Path(get_app_path()) / "config"
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     CONFIG_FILE = CONFIG_DIR / "config.json"
 
-    # 记录配置文件路径
-    logger.info(f"配置目录: {CONFIG_DIR.absolute()}")
-    logger.info(f"配置文件: {CONFIG_FILE.absolute()}")
+    # 設定ファイルのパスをログに記録
+    logger.info(f"設定ディレクトリ: {CONFIG_DIR.absolute()}")
+    logger.info(f"設定ファイル: {CONFIG_FILE.absolute()}")
     CONFIG_FILE = CONFIG_DIR / "config.json" if CONFIG_DIR else None
 
-    # 记录配置文件路径
+    # 設定ファイルのパスをログに記録
     if CONFIG_DIR:
-        logger.info(f"配置目录: {CONFIG_DIR.absolute()}")
-        logger.info(f"配置文件: {CONFIG_FILE.absolute()}")
+        logger.info(f"設定ディレクトリ: {CONFIG_DIR.absolute()}")
+        logger.info(f"設定ファイル: {CONFIG_FILE.absolute()}")
     else:
-        logger.warning("未找到配置目录，将使用默认配置")
+        logger.warning("設定ディレクトリが見つかりません。デフォルト設定を使用します")
 
-    # 默认配置
+    # デフォルト設定値の定義
     DEFAULT_CONFIG = {
         "SYSTEM_OPTIONS": {
-            "CLIENT_ID": None,
-            "DEVICE_ID": None,
+            "CLIENT_ID": None,  # 自動生成されるクライアントID
+            "DEVICE_ID": None,  # デバイス固有のID（MACアドレスベース）
             "NETWORK": {
-                "OTA_VERSION_URL": "https://api.tenclass.net/xiaozhi/ota/",
-                "WEBSOCKET_URL": None,
-                "WEBSOCKET_ACCESS_TOKEN": None,
-                "MQTT_INFO": None,
-                "ACTIVATION_VERSION": "v2",  # 可选值: v1, v2
-                "AUTHORIZATION_URL": "https://xiaozhi.me/",
+                "OTA_VERSION_URL": "https://api.tenclass.net/xiaozhi/ota/",  # OTAサーバーURL
+                "WEBSOCKET_URL": None,  # WebSocket接続URL
+                "WEBSOCKET_ACCESS_TOKEN": None,  # WebSocket認証トークン
+                "MQTT_INFO": None,  # MQTT接続情報
+                "ACTIVATION_VERSION": "v2",  # アクティベーションバージョン（v1, v2）
+                "AUTHORIZATION_URL": "https://xiaozhi.me/",  # 認証URL
             },
         },
         "WAKE_WORD_OPTIONS": {
-            "USE_WAKE_WORD": False,
-            "MODEL_PATH": "models/vosk-model-small-cn-0.22",
-            "WAKE_WORDS": ["小智", "小美"],
+            "USE_WAKE_WORD": False,  # ウェイクワード機能の有効/無効
+            "MODEL_PATH": "models/vosk-model-small-cn-0.22",  # 音声認識モデルのパス
+            "WAKE_WORDS": ["小智", "小美"],  # 設定されたウェイクワード
         },
         "TEMPERATURE_SENSOR_MQTT_INFO": {
-            "endpoint": "你的Mqtt连接地址",
-            "port": 1883,
-            "username": "admin",
-            "password": "123456",
-            "publish_topic": "sensors/temperature/command",
-            "subscribe_topic": "sensors/temperature/device_001/state",
+            "endpoint": "あなたのMQTT接続アドレス",  # MQTTブローカーのエンドポイント
+            "port": 1883,  # MQTTポート番号
+            "username": "admin",  # MQTT認証ユーザー名
+            "password": "123456",  # MQTT認証パスワード
+            "publish_topic": "sensors/temperature/command",  # 温度センサー制御トピック
+            "subscribe_topic": "sensors/temperature/device_001/state",  # 温度センサー状態トピック
         },
-        "HOME_ASSISTANT": {"URL": "http://localhost:8123", "TOKEN": "", "DEVICES": []},
+        "HOME_ASSISTANT": {
+            "URL": "http://localhost:8123",  # Home AssistantのURL
+            "TOKEN": "",  # Home Assistant APIトークン
+            "DEVICES": []  # 管理対象デバイスリスト
+        },
         "CAMERA": {
-            "camera_index": 0,
-            "frame_width": 640,
-            "frame_height": 480,
-            "fps": 30,
-            "Loacl_VL_url": "https://open.bigmodel.cn/api/paas/v4/",
-            "VLapi_key": "你自己的key",
-            "models": "glm-4v-plus",
+            "camera_index": 0,  # カメラデバイスインデックス
+            "frame_width": 640,  # 映像フレーム幅
+            "frame_height": 480,  # 映像フレーム高さ
+            "fps": 30,  # フレームレート
+            "Loacl_VL_url": "https://open.bigmodel.cn/api/paas/v4/",  # ビジュアル言語モデルAPI URL
+            "VLapi_key": "あなた自身のAPIキー",  # VL API認証キー
+            "models": "glm-4v-plus",  # 使用するVLモデル名
         },
     }
 
     def __new__(cls):
-        """确保单例模式."""
+        """
+        シングルトンパターンの実装
+        
+        クラスのインスタンスが既に存在する場合はそれを返し、
+        存在しない場合は新しいインスタンスを作成する。
+        
+        Returns:
+            ConfigManager: シングルトンインスタンス
+        """
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
     def __init__(self):
-        """初始化配置管理器."""
+        """
+        設定管理クラスの初期化
+        
+        シングルトンパターンのため、初期化は一度だけ実行される。
+        設定ファイルの読み込み、デバイス情報の初期化、
+        各種IDの生成・設定を行う。
+        """
         self.logger = logger
+        # 既に初期化済みの場合はスキップ
         if hasattr(self, "_initialized"):
             return
         self._initialized = True
-        self.device_activator = None
-        # 加载配置
+        self.device_activator = None  # デバイスアクティベーター（後で初期化）
+        
+        # 設定ファイルを読み込み
         self._config = self._load_config()
+        
+        # デバイスフィンガープリント生成器を初期化
         self.device_fingerprint = get_device_fingerprint()
         self.device_fingerprint._ensure_efuse_file()
-        self._initialize_client_id()
-        self._initialize_device_id()
-        # self._initialize_mqtt_info()
+        
+        # 必要なIDを初期化
+        self._initialize_client_id()  # クライアントID生成
+        self._initialize_device_id()  # デバイスID生成
+        # self._initialize_mqtt_info()  # MQTT情報は必要時に取得
 
     def _load_config(self) -> Dict[str, Any]:
-        """加载配置文件，如果不存在则创建."""
+        """
+        設定ファイルを読み込み、存在しない場合は作成する
+        
+        リソースファインダーを使用して設定ファイルを検索し、
+        見つからない場合はデフォルト設定でファイルを作成する。
+        既存の設定とデフォルト設定をマージして返す。
+        
+        Returns:
+            Dict[str, Any]: 読み込まれた設定データ
+        """
         try:
-            # 使用 resource_finder 查找配置文件
+            # resource_finderを使用して設定ファイルを検索
             config_file_path = find_file("config/config.json")
             if config_file_path and config_file_path.exists():
                 config = json.loads(config_file_path.read_text(encoding="utf-8"))
                 return self._merge_configs(self.DEFAULT_CONFIG, config)
 
-            # 如果找不到配置文件，尝试使用类变量中的路径
+            # 設定ファイルが見つからない場合、クラス変数のパスを試行
             if self.CONFIG_FILE and self.CONFIG_FILE.exists():
                 config = json.loads(self.CONFIG_FILE.read_text(encoding="utf-8"))
                 return self._merge_configs(self.DEFAULT_CONFIG, config)
             else:
-                # 创建默认配置
+                # デフォルト設定で新しい設定ファイルを作成
                 if self.CONFIG_DIR:
                     self.CONFIG_DIR.mkdir(parents=True, exist_ok=True)
                     self._save_config(self.DEFAULT_CONFIG)
                 return self.DEFAULT_CONFIG.copy()
         except Exception as e:
-            logger.error(f"Error loading config: {e}")
+            logger.error(f"設定読み込みエラー: {e}")
             return self.DEFAULT_CONFIG.copy()
 
     def _save_config(self, config: dict) -> bool:
-        """保存配置到文件."""
+        """
+        設定をファイルに保存する
+        
+        指定された設定データをJSON形式で設定ファイルに書き込む。
+        ディレクトリが存在しない場合は自動作成する。
+        
+        Args:
+            config (dict): 保存する設定データ
+            
+        Returns:
+            bool: 保存に成功した場合True、失敗した場合False
+        """
         try:
             if self.CONFIG_DIR and self.CONFIG_FILE:
+                # 設定ディレクトリを作成（存在しない場合）
                 self.CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+                # 設定をJSONファイルに書き込み（UTF-8エンコーディング、整形あり）
                 self.CONFIG_FILE.write_text(
                     json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8"
                 )
                 return True
             else:
-                logger.error("配置目录或文件路径未找到，无法保存配置")
+                logger.error("設定ディレクトリまたはファイルパスが見つかりません。設定を保存できません")
                 return False
         except Exception as e:
-            logger.error(f"Error saving config: {e}")
+            logger.error(f"設定保存エラー: {e}")
             return False
 
     @staticmethod
     def _merge_configs(default: dict, custom: dict) -> dict:
-        """递归合并配置字典."""
+        """
+        設定辞書を再帰的にマージする
+        
+        デフォルト設定とカスタム設定を統合し、カスタム設定が優先される。
+        ネストされた辞書も再帰的にマージされる。
+        
+        Args:
+            default (dict): デフォルト設定
+            custom (dict): カスタム設定（優先される）
+            
+        Returns:
+            dict: マージされた設定
+        """
         result = default.copy()
         for key, value in custom.items():
+            # 両方が辞書の場合は再帰的にマージ
             if (
                 key in result
                 and isinstance(result[key], dict)
@@ -153,116 +228,193 @@ class ConfigManager:
             ):
                 result[key] = ConfigManager._merge_configs(result[key], value)
             else:
+                # そうでなければカスタム設定で上書き
                 result[key] = value
         return result
 
     def get_config(self, path: str, default: Any = None) -> Any:
         """
-        通过路径获取配置值
-        path: 点分隔的配置路径，如 "network.mqtt.host"
+        パス指定で設定値を取得する
+        
+        ドット区切りのパス文字列を使用して、ネストされた設定値にアクセスする。
+        指定されたパスが存在しない場合はデフォルト値を返す。
+        
+        Args:
+            path (str): ドット区切りの設定パス（例: "SYSTEM_OPTIONS.NETWORK.MQTT_INFO"）
+            default (Any, optional): パスが存在しない場合のデフォルト値
+            
+        Returns:
+            Any: 設定値またはデフォルト値
+            
+        Example:
+            >>> config_manager.get_config("WAKE_WORD_OPTIONS.USE_WAKE_WORD", False)
         """
         try:
             value = self._config
+            # パスを分割して順次アクセス
             for key in path.split("."):
                 value = value[key]
             return value
         except (KeyError, TypeError):
+            # パスが存在しない場合はデフォルト値を返す
             return default
 
     def update_config(self, path: str, value: Any) -> bool:
         """
-        更新特定配置项
-        path: 点分隔的配置路径，如 "network.mqtt.host"
+        指定された設定項目を更新する
+        
+        ドット区切りのパスを使用して設定値を更新し、
+        変更を設定ファイルに保存する。
+        
+        Args:
+            path (str): ドット区切りの設定パス（例: "SYSTEM_OPTIONS.CLIENT_ID"）
+            value (Any): 設定する値
+            
+        Returns:
+            bool: 更新と保存に成功した場合True、失敗した場合False
+            
+        Example:
+            >>> config_manager.update_config("WAKE_WORD_OPTIONS.USE_WAKE_WORD", True)
         """
         try:
             current = self._config
+            # パスを分割して最後の要素以外をたどる
             *parts, last = path.split(".")
             for part in parts:
+                # 中間パスが存在しない場合は空の辞書を作成
                 current = current.setdefault(part, {})
+            # 最終的な値を設定
             current[last] = value
+            # 設定ファイルに保存
             return self._save_config(self._config)
         except Exception as e:
-            logger.error(f"Error updating config {path}: {e}")
+            logger.error(f"設定更新エラー {path}: {e}")
             return False
 
     @classmethod
     def get_instance(cls):
-        """获取配置管理器实例（线程安全）"""
+        """
+        設定管理クラスのインスタンスを取得する（スレッドセーフ）
+        
+        マルチスレッド環境で安全にシングルトンインスタンスを取得する。
+        ロックを使用してインスタンスの重複作成を防ぐ。
+        
+        Returns:
+            ConfigManager: シングルトンインスタンス
+        """
         with cls._lock:
             if cls._instance is None:
                 cls._instance = cls()
         return cls._instance
 
     def generate_uuid(self) -> str:
-        """生成 UUID v4."""
-        # 方法1：使用 Python 的 uuid 模块
+        """
+        UUID v4を生成する
+        
+        ランダムなUUID（Universally Unique Identifier）を生成し、
+        クライアントIDなどの一意識別子として使用する。
+        
+        Returns:
+            str: 生成されたUUID文字列
+        """
+        # Pythonのuuidモジュールを使用してUUID v4を生成
         return str(uuid.uuid4())
 
     def get_local_ip(self):
+        """
+        ローカルIPアドレスを取得する
+        
+        Google DNSサーバーへの仮想接続を作成して、
+        ローカルマシンのプライベートIPアドレスを取得する。
+        ネットワークエラーの場合はローカルホストアドレスを返す。
+        
+        Returns:
+            str: ローカルIPアドレス（取得失敗時は "127.0.0.1"）
+        """
         try:
-            # 创建一个临时 socket 连接来获取本机 IP
+            # Google DNSサーバーへの仮想接続でローカルIPを取得
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
-            ip = s.getsockname()[0]
+            ip = s.getsockname()[0]  # 接続に使用されたローカルIPを取得
             s.close()
             return ip
         except Exception:
+            # ネットワークエラーの場合はローカルホストを返す
             return "127.0.0.1"
 
     def _initialize_client_id(self):
-        """确保存在客户端ID."""
+        """
+        クライアントIDの初期化
+        
+        クライアントIDが設定されていない場合、新しいUUIDを生成して設定する。
+        クライアントIDはアプリケーションインスタンスの一意識別に使用される。
+        """
         if not self.get_config("SYSTEM_OPTIONS.CLIENT_ID"):
+            # 新しいクライアントIDを生成
             client_id = self.generate_uuid()
             success = self.update_config("SYSTEM_OPTIONS.CLIENT_ID", client_id)
             if success:
-                logger.info(f"Generated new CLIENT_ID: {client_id}")
+                logger.info(f"新しいクライアントIDを生成しました: {client_id}")
             else:
-                logger.error("Failed to save new CLIENT_ID")
+                logger.error("クライアントIDの保存に失敗しました")
 
     def _initialize_device_id(self):
-        """确保存在设备ID."""
+        """
+        デバイスIDの初期化
+        
+        デバイスIDが設定されていない場合、デバイスフィンガープリントから
+        MACアドレスを取得してデバイスIDとして設定する。
+        デバイスIDはハードウェア固有の識別に使用される。
+        """
         if not self.get_config("SYSTEM_OPTIONS.DEVICE_ID"):
             try:
+                # デバイスフィンガープリントからMACアドレスを取得
                 device_hash = self.device_fingerprint.generate_fingerprint().get(
                     "mac_address"
                 )
                 success = self.update_config("SYSTEM_OPTIONS.DEVICE_ID", device_hash)
                 if success:
-                    logger.info(f"Generated new DEVICE_ID: {device_hash}")
+                    logger.info(f"新しいデバイスIDを生成しました: {device_hash}")
                 else:
-                    logger.error("Failed to save new DEVICE_ID")
+                    logger.error("デバイスIDの保存に失敗しました")
             except Exception as e:
-                logger.error(f"Error generating DEVICE_ID: {e}")
+                logger.error(f"デバイスID生成エラー: {e}")
 
     def _initialize_mqtt_info(self):
-        """初始化MQTT信息 每次启动都重新获取最新的MQTT配置信息.
-
+        """
+        MQTT情報の初期化
+        
+        起動時にOTAサーバーから最新のMQTT設定情報を取得し、
+        WebSocket情報、デバイスアクティベーション処理も併せて実行する。
+        
         Returns:
-            dict: MQTT配置信息，获取失败则返回已保存的配置
+            dict: MQTT設定情報（取得失敗時は保存済み設定を返す）
         """
         try:
-            # 尝试获取新的MQTT信息
+            # OTAサーバーから最新のMQTT情報を取得
             response_data = self._get_ota_version()
 
+            # MQTT情報を処理
             self.handle_mqtt_json(response_data)
 
-            # 获取激活版本设置
+            # アクティベーションバージョン設定を取得
             activation_version_setting = self.get_config(
                 "SYSTEM_OPTIONS.NETWORK.ACTIVATION_VERSION", "v2"
             )
 
+            # WebSocket設定情報の処理
             if "websocket" in response_data:
                 websocket_info = response_data["websocket"]
-                self.logger.info("检测到WebSocket配置信息")
+                self.logger.info("WebSocket設定情報を検出しました")
 
-                # 更新WebSocket URL
+                # WebSocket URLの更新
                 if "url" in websocket_info:
                     self.update_config(
                         "SYSTEM_OPTIONS.NETWORK.WEBSOCKET_URL", websocket_info["url"]
                     )
-                    self.logger.info(f"WebSocket URL已更新: {websocket_info['url']}")
+                    self.logger.info(f"WebSocket URLが更新されました: {websocket_info['url']}")
 
-                # 更新WebSocket Token
+                # WebSocket トークンの更新
                 if "token" in websocket_info:
                     token_value = websocket_info["token"] or "test-token"
                 else:
@@ -271,188 +423,233 @@ class ConfigManager:
                 self.update_config(
                     "SYSTEM_OPTIONS.NETWORK.WEBSOCKET_ACCESS_TOKEN", token_value
                 )
-                self.logger.info("WebSocket Token已更新")
+                self.logger.info("WebSocket トークンが更新されました")
 
-            # 确定使用哪个版本的激活协议
+            # 使用するアクティベーションプロトコルのバージョンを決定
             if activation_version_setting in ["v1", "1"]:
                 activation_version = "1"
             else:
                 activation_version = "2"
-                time.sleep(1)
+                time.sleep(1)  # サーバー処理の待機
                 self.handle_v2_register(response_data)
 
             self.logger.info(
-                f"OTA请求使用激活版本: {activation_version} "
-                f"(配置值: {activation_version_setting})"
+                f"OTAリクエストでアクティベーションバージョンを使用: {activation_version} "
+                f"(設定値: {activation_version_setting})"
             )
 
         except Exception as e:
-            self.logger.error(f"初始化MQTT信息失败: {e}")
-            # 发生错误时返回已保存的配置
+            self.logger.error(f"MQTT情報の初期化に失敗しました: {e}")
+            # エラー発生時は保存済み設定を返す
             return self.get_config("MQTT_INFO")
 
     def handle_v2_register(self, response_data):
-        # 初始化设备激活器 - 确保在网络配置前初始化
+        """
+        v2アクティベーション登録の処理
+        
+        デバイスアクティベーターを初期化し、サーバーからの
+        アクティベーション要求を処理する。既にアクティベート済みの
+        デバイスでも再アクティベーションが要求される場合がある。
+        
+        Args:
+            response_data (dict): OTAサーバーからのレスポンスデータ
+        """
+        # デバイスアクティベーターを初期化（ネットワーク設定前に実行）
         self.device_activator = DeviceActivator(self)
-        # 处理激活信息
+        
+        # アクティベーション情報の処理
         if "activation" in response_data:
-            self.logger.info("检测到激活请求，开始设备激活流程")
-            # 如果设备已经激活，但服务器仍然发送激活请求，可能需要重新激活
+            self.logger.info("アクティベーション要求を検出、デバイスアクティベーション処理を開始")
+            
+            # 既にアクティベート済みでもサーバーが要求する場合は再アクティベーション
             if self.device_activator.is_activated():
-                self.logger.warning("设备已激活，但服务器仍然请求激活，尝试重新激活")
+                self.logger.warning("デバイスは既にアクティベート済みですが、サーバーが再アクティベーションを要求しています")
 
-            # 处理激活流程
+            # アクティベーション処理を実行
             activation_success = self.device_activator.process_activation(
                 response_data["activation"]
             )
 
             if not activation_success:
-                self.logger.error("设备激活失败")
-                # 如果是全新设备且激活失败，可能需要返回现有配置
+                self.logger.error("デバイスアクティベーションに失敗しました")
+                # 新規デバイスでアクティベーション失敗時は既存設定を返す
                 return self.get_config("SYSTEM_OPTIONS.NETWORK.MQTT_INFO")
             else:
-                self.logger.info("设备激活成功，重新获取配置")
-                # 重新获取OTA响应，应该不再包含激活信息
+                self.logger.info("デバイスアクティベーションが成功しました。設定を再取得します")
+                # 再度OTAレスポンスを取得（アクティベーション情報は含まれないはず）
                 response_data = self._get_ota_version()
-            # 处理WebSocket配置
+            # WebSocket設定を処理
 
     def handle_mqtt_json(self, response_data):
-        # 确保"mqtt"信息存在
+        """
+        MQTT JSONデータの処理
+        
+        OTAサーバーからのレスポンスに含まれるMQTT設定情報を
+        抽出し、アプリケーション設定に反映する。
+        
+        Args:
+            response_data (dict): OTAサーバーからのレスポンスデータ
+            
+        Returns:
+            dict: MQTT設定情報（取得失敗時は既存設定）
+        """
+        # MQTT情報の存在確認
         if "mqtt" in response_data:
-            self.logger.info("MQTT服务器信息已更新")
+            self.logger.info("MQTTサーバー情報が更新されました")
             mqtt_info = response_data["mqtt"]
             if mqtt_info:
-                # 更新配置
+                # 設定を更新
                 self.update_config("SYSTEM_OPTIONS.NETWORK.MQTT_INFO", mqtt_info)
-                self.logger.info("MQTT信息已成功更新")
+                self.logger.info("MQTT情報が正常に更新されました")
                 return mqtt_info
             else:
-                self.logger.warning("获取MQTT信息失败，使用已保存的配置")
+                self.logger.warning("MQTT情報の取得に失敗しました。保存済み設定を使用します")
                 return self.get_config("SYSTEM_OPTIONS.NETWORK.MQTT_INFO")
 
     def _get_ota_version(self):
-        """获取OTA服务器的MQTT信息."""
+        """
+        OTAサーバーからMQTT情報とその他の設定を取得する
+        
+        デバイス情報とアプリケーション情報をペイロードとして送信し、
+        サーバーから最新のMQTT設定、WebSocket設定、アクティベーション情報を取得する。
+        
+        Returns:
+            dict: OTAサーバーからのレスポンスデータ
+            
+        Raises:
+            ValueError: リクエスト失敗時やタイムアウト時
+        """
+        # 設定からデバイス情報を取得
         MAC_ADDR = self.get_config("SYSTEM_OPTIONS.DEVICE_ID")
         OTA_VERSION_URL = self.get_config("SYSTEM_OPTIONS.NETWORK.OTA_VERSION_URL")
 
-        # 获取应用信息
+        # アプリケーション情報の定義
         app_name = "xiaozhi"
-        app_version = "1.6.0"  # 从payload中获取
-        board_type = "lc-esp32-s3"  # 立创ESP32-S3开发板
+        app_version = "1.6.0"  # アプリケーションバージョン
+        board_type = "lc-esp32-s3"  # 立創ESP32-S3開発ボード
 
-        # 设置请求头
+        # HTTPリクエストヘッダーの設定
         headers = {
-            "Activation-Version": app_version,
-            "Device-Id": MAC_ADDR,
-            "Client-Id": self.get_config("SYSTEM_OPTIONS.CLIENT_ID"),
-            "Content-Type": "application/json",
-            "User-Agent": f"{board_type}/{app_name}-{app_version}",
-            "Accept-Language": "zh-CN",  # 添加语言标识，与C++版本保持一致
+            "Activation-Version": app_version,  # アクティベーションバージョン
+            "Device-Id": MAC_ADDR,  # デバイス識別子
+            "Client-Id": self.get_config("SYSTEM_OPTIONS.CLIENT_ID"),  # クライアント識別子
+            "Content-Type": "application/json",  # コンテントタイプ
+            "User-Agent": f"{board_type}/{app_name}-{app_version}",  # ユーザーエージェント
+            "Accept-Language": "zh-CN",  # 言語設定（C++版と同一）
         }
 
-        # 构建设备信息payload
+        # デバイス情報ペイロードの構築
         payload = {
-            "version": 2,
-            "flash_size": 16777216,  # 闪存大小 (16MB)
-            "psram_size": 8388608,  # 8MB PSRAM
-            "minimum_free_heap_size": 7265024,  # 最小可用堆内存
-            "mac_address": MAC_ADDR,  # 设备MAC地址
-            "uuid": self.get_config("SYSTEM_OPTIONS.CLIENT_ID"),
-            "chip_model_name": "esp32s3",  # 芯片型号
+            "version": 2,  # プロトコルバージョン
+            "flash_size": 16777216,  # フラッシュメモリサイズ (16MB)
+            "psram_size": 8388608,  # PSRAMサイズ (8MB)
+            "minimum_free_heap_size": 7265024,  # 最小利用可能ヒープメモリ
+            "mac_address": MAC_ADDR,  # デバイスMACアドレス
+            "uuid": self.get_config("SYSTEM_OPTIONS.CLIENT_ID"),  # 一意識別子
+            "chip_model_name": "esp32s3",  # チップモデル名
             "chip_info": {
-                "model": 9,  # ESP32-S3
-                "cores": 2,
-                "revision": 0,  # 芯片版本修订
-                "features": 20,  # WiFi + BLE + PSRAM
+                "model": 9,  # ESP32-S3モデル番号
+                "cores": 2,  # CPUコア数
+                "revision": 0,  # チップリビジョン番号
+                "features": 20,  # 機能フラグ (WiFi + BLE + PSRAM)
             },
             "application": {
-                "name": "xiaozhi",
-                "version": "1.6.0",
-                "compile_time": "2025-4-16T12:00:00Z",
-                "idf_version": "v5.3.2",
+                "name": "xiaozhi",  # アプリケーション名
+                "version": "1.6.0",  # アプリケーションバージョン
+                "compile_time": "2025-4-16T12:00:00Z",  # コンパイル時刻
+                "idf_version": "v5.3.2",  # ESP-IDFバージョン
             },
-            "partition_table": [
+            "partition_table": [  # パーティションテーブル情報
                 {
-                    "label": "nvs",
+                    "label": "nvs",  # NVS（不揮発性ストレージ）
                     "type": 1,
                     "subtype": 2,
                     "address": 36864,
                     "size": 24576,
                 },
                 {
-                    "label": "otadata",
+                    "label": "otadata",  # OTAデータパーティション
                     "type": 1,
                     "subtype": 0,
                     "address": 61440,
                     "size": 8192,
                 },
                 {
-                    "label": "app0",
+                    "label": "app0",  # アプリケーションパーティション0
                     "type": 0,
                     "subtype": 0,
                     "address": 65536,
                     "size": 1966080,
                 },
                 {
-                    "label": "app1",
+                    "label": "app1",  # アプリケーションパーティション1
                     "type": 0,
                     "subtype": 0,
                     "address": 2031616,
                     "size": 1966080,
                 },
                 {
-                    "label": "spiffs",
+                    "label": "spiffs",  # SPIFFSファイルシステム
                     "type": 1,
                     "subtype": 130,
                     "address": 3997696,
                     "size": 1966080,
                 },
             ],
-            "ota": {"label": "app0"},
+            "ota": {"label": "app0"},  # 現在のOTAパーティション
             "board": {
-                "type": "lc-esp32-s3",
-                "name": "立创ESP32-S3开发板",
-                "features": ["wifi", "ble", "psram", "octal_flash"],
-                "ip": self.get_local_ip(),
-                "mac": MAC_ADDR,
+                "type": "lc-esp32-s3",  # ボードタイプ
+                "name": "立創ESP32-S3開発ボード",  # ボード名
+                "features": ["wifi", "ble", "psram", "octal_flash"],  # ボード機能
+                "ip": self.get_local_ip(),  # ローカルIPアドレス
+                "mac": MAC_ADDR,  # MACアドレス
             },
         }
 
         try:
-            # 发送请求到OTA服务器
+            # OTAサーバーへのPOSTリクエスト送信
             response = requests.post(
                 OTA_VERSION_URL,
                 headers=headers,
                 json=payload,
-                timeout=10,  # 设置超时时间，防止请求卡死
-                proxies={"http": None, "https": None},  # 禁用代理
+                timeout=10,  # タイムアウト設定（リクエストがハングするのを防ぐ）
+                proxies={"http": None, "https": None},  # プロキシを無効化
             )
 
-            # 检查HTTP状态码
+            # HTTPステータスコードの確認
             if response.status_code != 200:
-                self.logger.error(f"OTA服务器错误: HTTP {response.status_code}")
-                raise ValueError(f"OTA服务器返回错误状态码: {response.status_code}")
+                self.logger.error(f"OTAサーバーエラー: HTTP {response.status_code}")
+                raise ValueError(f"OTAサーバーがエラーステータスコードを返しました: {response.status_code}")
 
-            # 解析JSON数据
+            # JSONレスポンスデータの解析
             response_data = response.json()
-            # 调试信息：打印完整的OTA响应
+            # デバッグ情報：完全なOTAレスポンスを出力
             self.logger.debug(
-                f"OTA服务器返回数据: "
+                f"OTAサーバーレスポンスデータ: "
                 f"{json.dumps(response_data, indent=4, ensure_ascii=False)}"
             )
 
+            # レスポンスデータをコンソールに出力（デバッグ用）
             print(json.dumps(response_data, indent=4, ensure_ascii=False))
 
             return response_data
 
         except requests.Timeout:
-            self.logger.error("OTA请求超时，请检查网络或服务器状态")
-            raise ValueError("OTA请求超时！请稍后重试。")
+            self.logger.error("OTAリクエストがタイムアウトしました。ネットワークまたはサーバーの状態を確認してください")
+            raise ValueError("OTAリクエストがタイムアウトしました。しばらく経ってから再試行してください。")
 
         except requests.RequestException as e:
-            self.logger.error(f"OTA请求失败: {e}")
-            raise ValueError("无法连接到OTA服务器，请检查网络连接！")
+            self.logger.error(f"OTAリクエストが失敗しました: {e}")
+            raise ValueError("OTAサーバーに接続できません。ネットワーク接続を確認してください。")
 
     def get_app_path(self) -> Path:
-        """获取应用程序的基础路径（支持开发环境和打包环境）"""
+        """
+        アプリケーションのベースパスを取得する
+        
+        開発環境とパッケージ環境の両方に対応し、
+        アプリケーションのルートディレクトリパスを返す。
+        
+        Returns:
+            Path: アプリケーションのベースパス
+        """
         return get_app_path()

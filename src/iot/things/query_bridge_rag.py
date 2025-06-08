@@ -2,83 +2,83 @@ from src.iot.thing import Parameter, Thing, ValueType
 
 
 def get_rag_result(qurey):
-    """介绍莱斯城市治理系统.
+    """ライス都市管理システムの紹介.
 
-    返回:
-        str: 介绍信息
+    返し値:
+        str: 紹介情報
     """
-    print("查询：", qurey)
-    introduction = "这里是你查询的函数，并且返回内容得地方"
+    print("クエリ:", qurey)
+    introduction = "ここがあなたがクエリした関数で、コンテンツを返す場所です"
     return introduction
 
 
 class QueryBridgeRAG(Thing):
     def __init__(self):
-        super().__init__("查询桥接器", "联网查询信息并存储结果")
-        # 存储查询到的内容
+        super().__init__("クエリブリッジ", "ネットワーククエリ情報を取得し結果を保存")
+        # クエリしたコンテンツを保存
         self.query_result = ""
         self.last_query = ""
 
-        # 注册属性
-        self.add_property("query_result", "当前查询结果", lambda: self.query_result)
-        self.add_property("last_query", "上次查询内容", lambda: self.last_query)
+        # プロパティを登録
+        self.add_property("query_result", "現在のクエリ結果", lambda: self.query_result)
+        self.add_property("last_query", "前回のクエリ内容", lambda: self.last_query)
 
         self._register_methods()
 
     def _register_methods(self):
-        # 查询信息
+        # 情報をクエリ
         self.add_method(
             "Query",
-            "查询信息",
-            [Parameter("query", "查询内容", ValueType.STRING, True)],
+            "情報をクエリ",
+            [Parameter("query", "クエリ内容", ValueType.STRING, True)],
             lambda params: self._query_info_and_store(params["query"].get_value()),
         )
 
-        # 获取查询结果
+        # クエリ結果を取得
         self.add_method(
             "GetQueryResult",
-            "获取查询结果",
+            "クエリ結果を取得",
             [],
             lambda params: {"result": self.query_result, "query": self.last_query},
         )
 
     def _query_info(self, query):
-        """查询信息.
+        """情報をクエリ.
 
-        参数:
-            query (str): 查询内容
+        引数:
+            query (str): クエリ内容
 
-        返回:
-            str: 查询结果
+        返し値:
+            str: クエリ結果
         """
         try:
-            # 调用逻辑层的 RAG 知识库查询
+            # ロジック層のRAGナレッジベースクエリを呼び出し
             result = get_rag_result(query)
-            # rag 查询
+            # ragクエリ
 
-            # 其他的联网方式例如dify
+            # difyなどの他のネットワーク方式
 
             return result
         except Exception as e:
-            print(f"查询信息失败: {e}")
-            return f"很抱歉，查询'{query}'时出现了错误。"
+            print(f"情報クエリ失敗: {e}")
+            return f"申し訳ありません、'{query}'のクエリ中にエラーが発生しました。"
 
     def _query_info_and_store(self, query):
-        """查询信息并存储.
+        """情報をクエリして保存.
 
-        参数:
-            query (str): 查询内容
+        引数:
+            query (str): クエリ内容
 
-        返回:
-            dict: 操作结果
+        返し値:
+            dict: 操作結果
         """
         try:
-            # 记录查询内容
+            # クエリ内容を記録
             self.last_query = query
 
-            # 查询信息并存储
+            # 情報をクエリして保存
             self.query_result = self._query_info(query)
 
-            return {"success": True, "message": "查询成功", "result": self.query_result}
+            return {"success": True, "message": "クエリ成功", "result": self.query_result}
         except Exception as e:
-            return {"success": False, "message": f"查询失败: {e}"}
+            return {"success": False, "message": f"クエリ失敗: {e}"}

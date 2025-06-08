@@ -12,7 +12,7 @@ class ImageAnalyzer:
         self.model = None
 
     def __new__(cls):
-        """确保单例模式."""
+        """シングルトンパターンを保証する."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
@@ -31,22 +31,22 @@ class ImageAnalyzer:
 
     @classmethod
     def get_instance(cls):
-        """获取摄像头管理器实例（线程安全）"""
+        """カメラマネージャーインスタンスを取得（スレッドセーフ）"""
         with cls._lock:
             if cls._instance is None:
                 cls._instance = cls()
         return cls._instance
 
     def analyze_image(
-        self, base64_image, prompt="图中描绘的是什么景象,请详细描述，因为用户可能是盲人"
+        self, base64_image, prompt="画像に描かれているのはどのような光景ですか、ユーザーが目の不自由な方である可能性があるため詳細に説明してください"
     ) -> str:
-        """分析图片并返回结果."""
+        """画像を分析して結果を返す."""
         completion = self.client.chat.completions.create(
             model=self.models,
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a helpful assistant.",  # 直接使用字符串，而不是列表
+                    "content": "You are a helpful assistant.",  # リストではなく文字列を直接使用
                 },
                 {
                     "role": "user",

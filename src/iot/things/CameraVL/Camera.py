@@ -15,13 +15,13 @@ logger = logging.getLogger("Camera")
 
 class Camera(Thing):
     def __init__(self):
-        super().__init__("Camera", "摄像头管理")
+        super().__init__("Camera", "カメラ管理")
         self.app = None
-        """初始化摄像头管理器."""
+        """カメラマネージャーを初期化."""
         if hasattr(self, "_initialized"):
             return
         self._initialized = True
-        # 加载配置
+        # 設定を読み込み
         self.cap = None
         self.is_running = False
         self.camera_thread = None
@@ -29,7 +29,7 @@ class Camera(Thing):
         from src.utils.config_manager import ConfigManager
 
         self.config = ConfigManager.get_instance()
-        # 摄像头控制器
+        # カメラコントローラー
         VL.ImageAnalyzer.get_instance().init(
             self.config.get_config("CAMERA.VLapi_key"),
             self.config.get_config("CAMERA.Loacl_VL_url"),
@@ -37,38 +37,38 @@ class Camera(Thing):
         )
         self.VL = VL.ImageAnalyzer.get_instance()
 
-        self.add_property_and_method()  # 定义设备方法与状态属性
+        self.add_property_and_method()  # デバイスメソッドと状態プロパティを定義
 
     def add_property_and_method(self):
-        # 定义属性
-        self.add_property("power", "摄像头是否打开", lambda: self.is_running)
-        self.add_property("result", "识别画面的内容", lambda: self.result)
-        # 定义方法
+        # プロパティを定義
+        self.add_property("power", "カメラが開いているか", lambda: self.is_running)
+        self.add_property("result", "認識した画面の内容", lambda: self.result)
+        # メソッドを定義
         self.add_method(
-            "start_camera", "打开摄像头", [], lambda params: self.start_camera()
+            "start_camera", "カメラを開く", [], lambda params: self.start_camera()
         )
 
         self.add_method(
-            "stop_camera", "关闭摄像头", [], lambda params: self.stop_camera()
+            "stop_camera", "カメラを閉じる", [], lambda params: self.stop_camera()
         )
 
         self.add_method(
             "capture_frame_to_base64",
-            "识别画面",
+            "画面を認識",
             [],
             lambda params: self.capture_frame_to_base64(),
         )
 
     def _camera_loop(self):
-        """摄像头线程的主循环."""
+        """カメラスレッドのメインループ."""
         camera_index = self.config.get_config("CAMERA.camera_index")
         self.cap = cv2.VideoCapture(camera_index)
 
         if not self.cap.isOpened():
-            logger.error("无法打开摄像头")
+            logger.error("カメラを開けません")
             return
 
-        # 设置摄像头参数
+        # カメラパラメータを設定
         self.cap.set(
             cv2.CAP_PROP_FRAME_WIDTH, self.config.get_config("CAMERA.frame_width")
         )
@@ -81,60 +81,60 @@ class Camera(Thing):
         while self.is_running:
             ret, frame = self.cap.read()
             if not ret:
-                logger.error("无法读取画面")
+                logger.error("画面を読み取れません")
                 break
 
-            # 显示画面
+            # 画面を表示
             cv2.imshow("Camera", frame)
 
-            # 按下 'q' 键退出
+            # 'q'キーを押して終了
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 self.is_running = False
 
-        # 释放摄像头并关闭窗口
+        # カメラを解放してウィンドウを閉じる
         self.cap.release()
         cv2.destroyAllWindows()
 
     def start_camera(self):
-        """启动摄像头线程."""
+        """カメラスレッドを開始."""
         if self.camera_thread is not None and self.camera_thread.is_alive():
-            logger.warning("摄像头线程已在运行")
+            logger.warning("カメラスレッドは既に実行中です")
             return
 
         self.camera_thread = threading.Thread(target=self._camera_loop, daemon=True)
         self.camera_thread.start()
-        logger.info("摄像头线程已启动")
-        return {"status": "success", "message": "摄像头线程已打开"}
+        logger.info("カメラスレッドが開始されました")
+        return {"status": "success", "message": "カメラスレッドが開かれました"}
 
     def capture_frame_to_base64(self):
-        """截取当前画面并转换为 Base64 编码."""
+        """現在の画面をキャプチャしてBase64エンコードに変換."""
         if not self.cap or not self.cap.isOpened():
-            logger.error("摄像头未打开")
+            logger.error("カメラが開いていません")
             return None
 
         ret, frame = self.cap.read()
         if not ret:
-            logger.error("无法读取画面")
+            logger.error("画面を読み取れません")
             return None
 
-        # 将帧转换为 JPEG 格式
+        # フレームをJPEG形式に変換
         _, buffer = cv2.imencode(".jpg", frame)
 
-        # 将 JPEG 图像转换为 Base64 编码
+        # JPEG画像をBase64エンコードに変換
         frame_base64 = base64.b64encode(buffer).decode("utf-8")
         self.result = str(self.VL.analyze_image(frame_base64))
-        # 获取应用程序实例
+        # アプリケーションインスタンスを取得
         self.app = Application.get_instance()
-        logger.info("画面已经识别到啦")
+        logger.info("画面が認識されました")
         self.app.set_device_state(DeviceState.LISTENING)
-        asyncio.create_task(self.app.protocol.send_wake_word_detected("播报识别结果"))
-        return {"status": "success", "message": "识别成功", "result": self.result}
+        asyncio.create_task(self.app.protocol.send_wake_word_detected("認識結果を報告"))
+        return {"status": "success", "message": "認識成功", "result": self.result}
 
     def stop_camera(self):
-        """停止摄像头线程."""
+        """カメラスレッドを停止."""
         self.is_running = False
         if self.camera_thread is not None:
-            self.camera_thread.join()  # 等待线程结束
+            self.camera_thread.join()  # スレッド終了を待機
             self.camera_thread = None
-            logger.info("摄像头线程已停止")
-            return {"status": "success", "message": "摄像头线程已停止"}
+            logger.info("カメラスレッドが停止されました")
+            return {"status": "success", "message": "カメラスレッドが停止されました"}

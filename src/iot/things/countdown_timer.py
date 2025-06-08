@@ -15,15 +15,15 @@ class CountdownTimer(Thing):
 
     def __init__(self):
         super().__init__("CountdownTimer", "一个用于延迟执行命令的倒计时器")
-        # 使用字典存储活动的计时器，键是 timer_id，值是 threading.Timer 对象
+        # アクティブなタイマーを保存する辞書、キーはtimer_id、値はthreading.Timerオブジェクト
         self._timers = {}
         self._next_timer_id = 0
-        # 使用锁来保护对 _timers 和 _next_timer_id 的访问，确保线程安全
+        # _timersと_next_timer_idへのアクセスを保護するロック、スレッドセーフを確保
         self._lock = threading.Lock()
 
         print("[虚拟设备] 倒计时器设备初始化完成")
 
-        # 定义方法 - 使用 Parameter 对象
+        # メソッドを定義 - Parameterオブジェクトを使用
         self.add_method(
             "StartCountdown",
             "启动一个倒计时，结束后执行指定命令",
@@ -36,7 +36,7 @@ class CountdownTimer(Thing):
                 ),
                 Parameter(
                     "delay", "延迟时间（秒），默认为5秒", "integer", required=False
-                ),  # 使用 required=False 标记可选参数
+                ),  # required=Falseを使用してオプションパラメータをマーク
             ],
             lambda params: self._start_countdown(params),
         )
@@ -60,9 +60,9 @@ class CountdownTimer(Thing):
         logger.info(f"倒计时 {timer_id} 结束，准备执行命令: {command_str}")
 
         try:
-            # 命令应该是 JSON 格式的字符串，代表一个命令字典
+            # コマンドはJSON形式の文字列であり、コマンド辞書を表す
             command_dict = json.loads(command_str)
-            # 获取 ThingManager 单例并执行命令
+            # ThingManagerシングルトンを取得してコマンドを実行
             thing_manager = ThingManager.get_instance()
             result = thing_manager.invoke(command_dict)
             logger.info(f"倒计时 {timer_id} 执行命令 '{command_str}' 结果: {result}")
@@ -79,12 +79,12 @@ class CountdownTimer(Thing):
 
     def _start_countdown(self, params_dict):
         """处理 StartCountdown 方法调用。注意: params 现在是 Parameter 对象的字典."""
-        # 从 Parameter 对象字典中获取值
+        # Parameterオブジェクト辞書から値を取得
         command_param = params_dict.get("command")
         delay_param = params_dict.get("delay")
 
         command_str = command_param.get_value() if command_param else None
-        # 处理可选参数 delay
+        # オプションパラメータdelayを処理
         delay = (
             delay_param.get_value()
             if delay_param and delay_param.get_value() is not None
@@ -97,7 +97,7 @@ class CountdownTimer(Thing):
 
         # 验证延迟时间
         try:
-            # 确保 delay 是整数类型
+            # delayが整数型であることを確認
             if not isinstance(delay, int):
                 delay = int(delay)
 
@@ -148,7 +148,7 @@ class CountdownTimer(Thing):
             return {"status": "error", "message": "缺少 'timer_id' 参数值"}
 
         try:
-            # 确保 timer_id 是整数
+            # timer_idが整数であることを確認
             if not isinstance(timer_id, int):
                 timer_id = int(timer_id)
         except (ValueError, TypeError):
@@ -181,5 +181,5 @@ class CountdownTimer(Thing):
         logger.info("倒计时器清理完成。")
 
 
-# 注意：这个 cleanup 方法需要在应用程序关闭时被显式调用。
-# ThingManager 或 Application 类可以负责在 shutdown 过程中调用其管理的 Things 的 cleanup 方法。
+# 注意：このcleanupメソッドはアプリケーション終了時に明示的に呼び出される必要があります。
+# ThingManagerまたはApplicationクラスがshutdownプロセス中に管理するThingsのcleanupメソッドを呼び出すことができます。

@@ -7,7 +7,7 @@ from typing import Callable, Optional
 
 from src.display.base_display import BaseDisplay
 
-# 根据不同操作系统处理 pynput 导入
+# 異なるOSでのpynputインポートを処理
 try:
     if platform.system() == "Windows":
         from pynput import keyboard as pynput_keyboard
@@ -23,39 +23,39 @@ from src.utils.logging_config import get_logger
 
 class CliDisplay(BaseDisplay):
     def __init__(self):
-        super().__init__()  # 调用父类初始化
-        """初始化CLI显示."""
+        super().__init__()  # 親クラスの初期化を呼び出し
+        """CLIディスプレイを初期化."""
         self.logger = get_logger(__name__)
         self.running = True
 
-        # 状态相关
-        self.current_status = "未连接"
-        self.current_text = "待命"
+        # ステータス関連
+        self.current_status = "未接続"
+        self.current_text = "待機中"
         self.current_emotion = "😊"
-        self.current_volume = 0  # 添加当前音量属性
+        self.current_volume = 0  # 現在の音量属性を追加
 
-        # 回调函数
+        # コールバック関数
         self.auto_callback = None
         self.status_callback = None
         self.text_callback = None
         self.emotion_callback = None
         self.abort_callback = None
         self.send_text_callback = None
-        # 按键状态
+        # キー状態
         self.is_r_pressed = False
-        # 添加组合键支持
+        # 組み合わせキーサポートを追加
         self.pressed_keys = set()
 
-        # 状态缓存
+        # ステータスキャッシュ
         self.last_status = None
         self.last_text = None
         self.last_emotion = None
         self.last_volume = None
 
-        # 键盘监听器
+        # キーボードリスナー
         self.keyboard_listener = None
 
-        # 为异步操作添加事件循环
+        # 非同期操作のためのイベントループを追加
         self.loop = asyncio.new_event_loop()
 
     def set_callbacks(
@@ -70,7 +70,7 @@ class CliDisplay(BaseDisplay):
         abort_callback: Optional[Callable] = None,
         send_text_callback: Optional[Callable] = None,
     ):
-        """设置回调函数."""
+        """コールバック関数を設定."""
         self.status_callback = status_callback
         self.text_callback = text_callback
         self.emotion_callback = emotion_callback
@@ -79,48 +79,48 @@ class CliDisplay(BaseDisplay):
         self.send_text_callback = send_text_callback
 
     def update_button_status(self, text: str):
-        """更新按钮状态."""
-        print(f"按钮状态: {text}")
+        """ボタンステータスを更新."""
+        print(f"ボタンステータス: {text}")
 
     def update_status(self, status: str):
-        """更新状态文本."""
+        """ステータステキストを更新."""
         if status != self.current_status:
             self.current_status = status
             self._print_current_status()
 
     def update_text(self, text: str):
-        """更新TTS文本."""
+        """TTSテキストを更新."""
         if text != self.current_text:
             self.current_text = text
             self._print_current_status()
 
     def update_emotion(self, emotion_path: str):
-        """更新表情
-        emotion_path: GIF文件路径或表情字符串
+        """表情を更新
+        emotion_path: GIFファイルパスまたは表情文字列
         """
         if emotion_path != self.current_emotion:
-            # 如果是gif文件路径，提取文件名作为表情名
+            # GIFファイルパスの場合、ファイル名を表情名として抽出
             if emotion_path.endswith(".gif"):
-                # 从路径中提取文件名，去掉.gif后缀
+                # パスからファイル名を抽出し、.gif拡張子を削除
                 emotion_name = os.path.basename(emotion_path)
                 emotion_name = emotion_name.replace(".gif", "")
                 self.current_emotion = f"[{emotion_name}]"
             else:
-                # 如果不是gif路径，则直接使用
+                # GIFパスでない場合、そのまま使用
                 self.current_emotion = emotion_path
 
             self._print_current_status()
 
     def is_combo(self, *keys):
-        """判断是否同时按下了一组按键."""
+        """一組のキーが同時に押されているかを判定."""
         return all(k in self.pressed_keys for k in keys)
 
     def start_keyboard_listener(self):
-        """启动键盘监听."""
-        # 如果 pynput 不可用，记录警告并返回
+        """キーボード監視を開始."""
+        # pynputが利用できない場合、警告をログに記録して戻る
         if pynput_keyboard is None:
             self.logger.warning(
-                "键盘监听不可用：pynput 库未能正确加载。将使用基本的命令行输入。"
+                "キーボード監視利用不可：pynputライブラリが正しく読み込まれませんでした。基本的なコマンドライン入力を使用します。"
             )
             return
 
@@ -128,7 +128,7 @@ class CliDisplay(BaseDisplay):
 
             def on_press(key):
                 try:
-                    # 记录按下的键
+                    # 押されたキーを記録
                     if (
                         key == pynput_keyboard.Key.alt_l
                         or key == pynput_keyboard.Key.alt_r
@@ -142,20 +142,20 @@ class CliDisplay(BaseDisplay):
                     elif hasattr(key, "char") and key.char:
                         self.pressed_keys.add(key.char.lower())
 
-                    # 自动对话模式 - Alt+Shift+A
+                    # 自動対話モード - Alt+Shift+A
                     if self.is_combo("alt", "shift", "a") and self.auto_callback:
                         self.auto_callback()
 
-                    # 打断对话 - Alt+Shift+X
+                    # 対話を中断 - Alt+Shift+X
                     if self.is_combo("alt", "shift", "x") and self.abort_callback:
                         self.abort_callback()
 
                 except Exception as e:
-                    self.logger.error(f"键盘事件处理错误: {e}")
+                    self.logger.error(f"キーボードイベント処理エラー: {e}")
 
             def on_release(key):
                 try:
-                    # 清除释放的键
+                    # 解放されたキーをクリア
                     if (
                         key == pynput_keyboard.Key.alt_l
                         or key == pynput_keyboard.Key.alt_r
@@ -169,43 +169,43 @@ class CliDisplay(BaseDisplay):
                     elif hasattr(key, "char") and key.char:
                         self.pressed_keys.discard(key.char.lower())
                 except Exception as e:
-                    self.logger.error(f"键盘事件处理错误: {e}")
+                    self.logger.error(f"キーボードイベント処理エラー: {e}")
 
-            # 创建并启动监听器
+            # リスナーを作成して開始
             self.keyboard_listener = pynput_keyboard.Listener(
                 on_press=on_press, on_release=on_release
             )
             self.keyboard_listener.start()
-            self.logger.info("键盘监听器初始化成功")
+            self.logger.info("キーボードリスナー初期化成功")
         except Exception as e:
-            self.logger.error(f"键盘监听器初始化失败: {e}")
+            self.logger.error(f"キーボードリスナー初期化失敗: {e}")
 
     def stop_keyboard_listener(self):
-        """停止键盘监听."""
+        """キーボード監視を停止."""
         if self.keyboard_listener:
             try:
                 self.keyboard_listener.stop()
                 self.keyboard_listener = None
-                self.logger.info("键盘监听器已停止")
+                self.logger.info("キーボードリスナーが停止されました")
             except Exception as e:
-                self.logger.error(f"停止键盘监听器失败: {e}")
+                self.logger.error(f"キーボードリスナー停止失敗: {e}")
 
     def start(self):
-        """启动CLI显示."""
+        """CLIディスプレイを開始."""
         self._print_help()
 
-        # 启动状态更新线程
+        # ステータス更新スレッドを開始
         self.start_update_threads()
 
-        # 启动键盘监听线程
+        # キーボード監視スレッドを開始
         keyboard_thread = threading.Thread(target=self._keyboard_listener)
         keyboard_thread.daemon = True
         keyboard_thread.start()
 
-        # 启动键盘监听
+        # キーボード監視を開始
         self.start_keyboard_listener()
 
-        # 主循环
+        # メインループ
         try:
             while self.running:
                 time.sleep(0.1)
@@ -213,28 +213,28 @@ class CliDisplay(BaseDisplay):
             self.on_close()
 
     def on_close(self):
-        """关闭CLI显示."""
+        """CLIディスプレイを閉じる."""
         self.running = False
-        print("\n正在关闭应用...")
+        print("\nアプリケーションを終了中...")
         self.stop_keyboard_listener()
 
     def _print_help(self):
-        """打印帮助信息."""
-        print("\n=== 小智Ai命令行控制 ===")
-        print("可用命令：")
-        print("  r     - 开始/停止对话")
-        print("  x     - 打断当前对话")
-        print("  s     - 显示当前状态")
-        print("  v 数字 - 设置音量(0-100)")
-        print("  q     - 退出程序")
-        print("  h     - 显示此帮助信息")
-        print("快捷键：")
-        print("  Alt+Shift+A - 自动对话模式")
-        print("  Alt+Shift+X - 打断当前对话")
+        """ヘルプ情報を表示."""
+        print("\n=== 小智AIコマンドライン制御 ===")
+        print("利用可能なコマンド：")
+        print("  r     - 対話を開始/停止")
+        print("  x     - 現在の対話を中断")
+        print("  s     - 現在のステータスを表示")
+        print("  v 数字 - 音量設定(0-100)")
+        print("  q     - プログラム終了")
+        print("  h     - このヘルプ情報を表示")
+        print("ショートカットキー：")
+        print("  Alt+Shift+A - 自動対話モード")
+        print("  Alt+Shift+X - 現在の対話を中断")
         print("=====================\n")
 
     def _keyboard_listener(self):
-        """键盘监听线程."""
+        """キーボード監視スレッド."""
         try:
             while self.running:
                 cmd = input().lower().strip()
@@ -251,19 +251,19 @@ class CliDisplay(BaseDisplay):
                         self.abort_callback()
                 elif cmd == "s":
                     self._print_current_status()
-                elif cmd.startswith("v "):  # 添加音量命令处理
+                elif cmd.startswith("v "):  # 音量コマンド処理を追加
                     try:
-                        volume = int(cmd.split()[1])  # 获取音量值
+                        volume = int(cmd.split()[1])  # 音量値を取得
                         if 0 <= volume <= 100:
                             self.update_volume(volume)
-                            print(f"音量已设置为: {volume}%")
+                            print(f"音量が設定されました: {volume}%")
                         else:
-                            print("音量必须在0-100之间")
+                            print("音量は0-100の間である必要があります")
                     except (IndexError, ValueError):
-                        print("无效的音量值，格式：v <0-100>")
+                        print("無効な音量値です。形式：v <0-100>")
                 else:
                     if self.send_text_callback:
-                        # 获取应用程序的事件循环并在其中运行协程
+                        # アプリケーションのイベントループを取得してその中でコルーチンを実行
                         from src.application import Application
 
                         app = Application.get_instance()
@@ -272,44 +272,44 @@ class CliDisplay(BaseDisplay):
                                 self.send_text_callback(cmd), app.loop
                             )
                         else:
-                            print("应用程序实例或事件循环不可用")
+                            print("アプリケーションインスタンスまたはイベントループが利用できません")
         except Exception as e:
-            self.logger.error(f"键盘监听错误: {e}")
+            self.logger.error(f"キーボード監視エラー: {e}")
 
     def start_update_threads(self):
-        """启动更新线程."""
+        """更新スレッドを開始."""
 
         def update_loop():
             while self.running:
                 try:
-                    # 更新状态
+                    # ステータスを更新
                     if self.status_callback:
                         status = self.status_callback()
                         if status and status != self.current_status:
                             self.update_status(status)
 
-                    # 更新文本
+                    # テキストを更新
                     if self.text_callback:
                         text = self.text_callback()
                         if text and text != self.current_text:
                             self.update_text(text)
 
-                    # 更新表情
+                    # 表情を更新
                     if self.emotion_callback:
                         emotion = self.emotion_callback()
                         if emotion and emotion != self.current_emotion:
                             self.update_emotion(emotion)
 
                 except Exception as e:
-                    self.logger.error(f"状态更新错误: {e}")
+                    self.logger.error(f"ステータス更新エラー: {e}")
                 time.sleep(0.1)
 
-        # 启动更新线程
+        # 更新スレッドを開始
         threading.Thread(target=update_loop, daemon=True).start()
 
     def _print_current_status(self):
-        """打印当前状态."""
-        # 检查是否有状态变化
+        """現在のステータスを表示."""
+        # ステータスの変化があるかチェック
         status_changed = (
             self.current_status != self.last_status
             or self.current_text != self.last_text
@@ -318,14 +318,14 @@ class CliDisplay(BaseDisplay):
         )
 
         if status_changed:
-            print("\n=== 当前状态 ===")
-            print(f"状态: {self.current_status}")
-            print(f"文本: {self.current_text}")
+            print("\n=== 現在のステータス ===")
+            print(f"ステータス: {self.current_status}")
+            print(f"テキスト: {self.current_text}")
             print(f"表情: {self.current_emotion}")
             print(f"音量: {self.current_volume}%")
             print("===============\n")
 
-            # 更新缓存
+            # キャッシュを更新
             self.last_status = self.current_status
             self.last_text = self.current_text
             self.last_emotion = self.current_emotion

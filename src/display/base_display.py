@@ -4,32 +4,36 @@ from typing import Callable, Optional
 
 
 class BaseDisplay(ABC):
-    """显示接口的抽象基类."""
+    """ディスプレイインターフェースの抽象基底クラス.
+    
+    このクラスは、異なるディスプレイ実装（CLI、GUI等）の共通インターフェースを定義します。
+    音量制御、状態更新、感情表示、キーボード監視などの機能を提供します。
+    """
 
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.current_volume = 70  # 默认音量值
+        self.current_volume = 70  # デフォルト音量値
         self.volume_controller = None
 
-        # 检查音量控制依赖
+        # 音量制御の依存関係をチェック
         try:
             from src.utils.volume_controller import VolumeController
 
             if VolumeController.check_dependencies():
                 self.volume_controller = VolumeController()
-                self.logger.info("音量控制器初始化成功")
-                # 读取系统当前音量
+                self.logger.info("音量制御器の初期化が成功しました")
+                # システムの現在の音量を読み取り
                 try:
                     self.current_volume = self.volume_controller.get_volume()
-                    self.logger.info(f"读取到系统音量: {self.current_volume}%")
+                    self.logger.info(f"システム音量を読み取りました: {self.current_volume}%")
                 except Exception as e:
                     self.logger.warning(
-                        f"获取初始系统音量失败: {e}，将使用默认值 {self.current_volume}%"
+                        f"初期システム音量の取得に失敗しました: {e}、デフォルト値 {self.current_volume}% を使用します"
                     )
             else:
-                self.logger.warning("音量控制依赖不满足，将使用默认音量控制")
+                self.logger.warning("音量制御の依存関係が満たされていません、デフォルト音量制御を使用します")
         except Exception as e:
-            self.logger.warning(f"音量控制器初始化失败: {e}，将使用模拟音量控制")
+            self.logger.warning(f"音量制御器の初期化に失敗しました: {e}、模擬音量制御を使用します")
 
     @abstractmethod
     def set_callbacks(
@@ -43,69 +47,105 @@ class BaseDisplay(ABC):
         auto_callback: Optional[Callable] = None,
         abort_callback: Optional[Callable] = None,
         send_text_callback: Optional[Callable] = None,
-    ):  # 添加打断回调参数
-        """设置回调函数."""
+    ):  # 中断コールバックパラメータを追加
+        """コールバック関数を設定します.
+        
+        Args:
+            press_callback: ボタン押下時のコールバック
+            release_callback: ボタン離し時のコールバック
+            status_callback: ステータス更新コールバック
+            text_callback: テキスト更新コールバック
+            emotion_callback: 感情更新コールバック
+            mode_callback: モード変更コールバック
+            auto_callback: 自動対話コールバック
+            abort_callback: 中断コールバック
+            send_text_callback: テキスト送信コールバック
+        """
 
     @abstractmethod
     def update_button_status(self, text: str):
-        """更新按钮状态."""
+        """ボタンのステータスを更新します.
+        
+        Args:
+            text: 表示するボタンテキスト
+        """
 
     @abstractmethod
     def update_status(self, status: str):
-        """更新状态文本."""
+        """ステータステキストを更新します.
+        
+        Args:
+            status: 表示するステータス文字列
+        """
 
     @abstractmethod
     def update_text(self, text: str):
-        """更新TTS文本."""
+        """TTSテキストを更新します.
+        
+        Args:
+            text: 表示するTTSテキスト
+        """
 
     @abstractmethod
     def update_emotion(self, emotion: str):
-        """更新表情."""
+        """感情を更新します.
+        
+        Args:
+            emotion: 表示する感情（絵文字またはGIFファイルパス）
+        """
 
     def get_current_volume(self):
-        """获取当前音量."""
+        """現在の音量を取得します.
+        
+        Returns:
+            int: 現在の音量レベル（0-100）
+        """
         if self.volume_controller:
             try:
-                # 从系统获取最新音量
+                # システムから最新の音量を取得
                 self.current_volume = self.volume_controller.get_volume()
-                # 获取成功，标记音量控制器正常工作
+                # 取得成功、音量制御器が正常に動作していることをマーク
                 if hasattr(self, "volume_controller_failed"):
                     self.volume_controller_failed = False
             except Exception as e:
-                self.logger.debug(f"获取系统音量失败: {e}")
-                # 标记音量控制器工作异常
+                self.logger.debug(f"システム音量の取得に失敗しました: {e}")
+                # 音量制御器の動作異常をマーク
                 self.volume_controller_failed = True
         return self.current_volume
 
     def update_volume(self, volume: int):
-        """更新系统音量."""
-        # 确保音量在有效范围内
+        """システム音量を更新します.
+        
+        Args:
+            volume: 設定する音量レベル（0-100）
+        """
+        # 音量が有効範囲内であることを確認
         volume = max(0, min(100, volume))
 
-        # 更新内部音量值
+        # 内部音量値を更新
         self.current_volume = volume
-        self.logger.info(f"设置音量: {volume}%")
+        self.logger.info(f"音量を設定: {volume}%")
 
-        # 尝试更新系统音量
+        # システム音量の更新を試行
         if self.volume_controller:
             try:
                 self.volume_controller.set_volume(volume)
-                self.logger.debug(f"系统音量已设置为: {volume}%")
+                self.logger.debug(f"システム音量が設定されました: {volume}%")
             except Exception as e:
-                self.logger.warning(f"设置系统音量失败: {e}")
+                self.logger.warning(f"システム音量の設定に失敗しました: {e}")
 
     @abstractmethod
     def start(self):
-        """启动显示."""
+        """ディスプレイを開始します."""
 
     @abstractmethod
     def on_close(self):
-        """关闭显示."""
+        """ディスプレイを閉じます."""
 
     @abstractmethod
     def start_keyboard_listener(self):
-        """启动键盘监听."""
+        """キーボード監視を開始します."""
 
     @abstractmethod
     def stop_keyboard_listener(self):
-        """停止键盘监听."""
+        """キーボード監視を停止します."""

@@ -1,3 +1,9 @@
+"""
+ログ設定モジュール
+
+アプリケーション全体のログシステムを設定・管理するモジュールです。
+コンソールとファイルへの出力、ログローテーション、カラー表示などの機能を提供します。
+"""
 import logging
 from logging.handlers import TimedRotatingFileHandler
 
@@ -5,46 +11,54 @@ from colorlog import ColoredFormatter
 
 
 def setup_logging():
-    """配置日志系统."""
+    """ログシステムを設定.
+    
+    プロジェクト全体のログシステムを初期化し、コンソールとファイルの
+    両方にログを出力するように設定します。ログファイルは日別にローテーションされ、
+    30日分が保持されます。
+    
+    Returns:
+        Path: ログファイルのパス
+    """
     from .resource_finder import get_project_root
 
-    # 使用resource_finder获取项目根目录并创建logs目录
+    # resource_finderを使用してプロジェクトルートディレクトリを取得し、logsディレクトリを作成
     project_root = get_project_root()
     log_dir = project_root / "logs"
     log_dir.mkdir(exist_ok=True)
 
-    # 日志文件路径
+    # ログファイルパス
     log_file = log_dir / "app.log"
 
-    # 创建根日志记录器
+    # ルートロガーを作成
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)  # 设置根日志级别
+    root_logger.setLevel(logging.INFO)  # ルートログレベルを設定
 
-    # 清除已有的处理器（避免重复添加）
+    # 既存のハンドラーをクリア（重複追加を回避）
     if root_logger.handlers:
         root_logger.handlers.clear()
 
-    # 创建控制台处理器
+    # コンソールハンドラーを作成
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
 
-    # 创建按天切割的文件处理器
+    # 日次ローテーションファイルハンドラーを作成
     file_handler = TimedRotatingFileHandler(
         log_file,
-        when="midnight",  # 每天午夜切割
-        interval=1,  # 每1天
-        backupCount=30,  # 保留30天的日志
+        when="midnight",  # 毎日深夜にローテーション
+        interval=1,  # 1日ごと
+        backupCount=30,  # 30日分のログを保持
         encoding="utf-8",
     )
     file_handler.setLevel(logging.INFO)
-    file_handler.suffix = "%Y-%m-%d.log"  # 日志文件后缀格式
+    file_handler.suffix = "%Y-%m-%d.log"  # ログファイルのサフィックス形式
 
-    # 创建格式化器
+    # フォーマッターを作成
     formatter = logging.Formatter(
         "%(asctime)s[%(name)s] - %(levelname)s - %(message)s - %(threadName)s"
     )
 
-    # 控制台颜色格式化器
+    # コンソール用カラーフォーマッター
     color_formatter = ColoredFormatter(
         "%(green)s%(asctime)s%(reset)s[%(blue)s%(name)s%(reset)s] - "
         "%(log_color)s%(levelname)s%(reset)s - %(green)s%(message)s%(reset)s - "
@@ -61,39 +75,39 @@ def setup_logging():
     console_handler.setFormatter(color_formatter)
     file_handler.setFormatter(formatter)
 
-    # 添加处理器到根日志记录器
+    # ハンドラーをルートロガーに追加
     root_logger.addHandler(console_handler)
     root_logger.addHandler(file_handler)
 
-    # 输出日志配置信息
-    logging.info("日志系统已初始化，日志文件: %s", log_file)
+    # ログ設定情報を出力
+    logging.info("ログシステムが初期化されました。ログファイル: %s", log_file)
 
     return log_file
 
 
 def get_logger(name):
-    """获取统一配置的日志记录器.
+    """統一設定されたロガーを取得.
 
     Args:
-        name: 日志记录器名称，通常是模块名
+        name: ロガー名、通常はモジュール名
 
     Returns:
-        logging.Logger: 配置好的日志记录器
+        logging.Logger: 設定済みのロガー
 
-    示例:
+    使用例:
         logger = get_logger(__name__)
-        logger.info("这是一条信息")
-        logger.error("出错了: %s", error_msg)
+        logger.info("これは情報メッセージです")
+        logger.error("エラーが発生しました: %s", error_msg)
     """
     logger = logging.getLogger(name)
 
-    # 添加一些辅助方法
+    # ヘルパーメソッドを追加
     def log_error_with_exc(msg, *args, **kwargs):
-        """记录错误并自动包含异常堆栈."""
+        """エラーを記録し、自動的に例外スタックトレースを含める."""
         kwargs["exc_info"] = True
         logger.error(msg, *args, **kwargs)
 
-    # 添加到日志记录器
+    # ロガーに追加
     logger.error_exc = log_error_with_exc
 
     return logger

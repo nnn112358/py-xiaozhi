@@ -1,3 +1,9 @@
+"""
+音楽プレーヤーIoTデバイス
+
+オンライン音楽の検索、再生、一時停止などの機能を提供します。
+歌詞表示、再生進行状況の追跡、ローカルキャッシュなどの高度な機能をサポートします。
+"""
 import os
 import threading
 import time
@@ -15,39 +21,49 @@ logger = get_logger(__name__)
 
 
 class MusicPlayer(Thing):
-    """音乐播放器组件.
+    """音楽プレーヤーコンポーネント.
 
-    提供在线音乐搜索、播放、暂停等功能，支持歌词显示和播放进度跟踪。 使用pygame播放引擎实现音频播放功能。
+    オンライン音楽の検索、再生、一時停止などの機能を提供し、歌詞表示と
+    再生進行状況の追跡をサポートします。pygame 再生エンジンを使用して
+    オーディオ再生機能を実装します。
+    
+    主な機能:
+    - オンライン音楽検索と再生
+    - 再生/一時停止/停止制御
+    - 再生位置の調整
+    - 歌詞の取得と表示
+    - ローカルキャッシュによる高速再生
+    - TTS との自動連携（TTS 中は自動一時停止）
     """
 
     def __init__(self):
-        """初始化音乐播放器组件."""
+        """音楽プレーヤーコンポーネントを初期化."""
         super().__init__(
             "MusicPlayer",
-            "在线音乐播放器,播放音乐时优先使用iot的音乐播放器，支持本地缓存、暂停、进度跳转",
+            "オンライン音楽プレーヤー、音楽再生時はIoTの音楽プレーヤーを優先使用、ローカルキャッシュ、一時停止、進行位置ジャンプをサポート",
         )
 
-        # 初始化pygame mixer
+        # pygame mixer を初期化
         pygame.mixer.init(
             frequency=AudioConfig.OUTPUT_SAMPLE_RATE, channels=AudioConfig.CHANNELS
         )
 
-        # 搜索结果相关属性
-        self.current_song = ""  # 当前歌曲名称
-        self.current_url = ""  # 当前歌曲播放链接
-        self.song_id = ""  # 当前歌曲ID
-        self.total_duration = 0  # 歌曲总时长（秒）
+        # 検索結果関連属性
+        self.current_song = ""  # 現在の曲名
+        self.current_url = ""  # 現在の曲の再生URL
+        self.song_id = ""  # 現在の曲ID
+        self.total_duration = 0  # 曲の総時間（秒）
 
-        # 播放控制相关属性
-        self.is_playing = False  # 是否正在播放
-        self.paused = False  # 是否暂停
-        self.current_position = 0  # 当前播放位置（秒）
-        self.start_play_time = 0  # 开始播放的时间点
+        # 再生制御関連属性
+        self.is_playing = False  # 再生中かどうか
+        self.paused = False  # 一時停止中かどうか
+        self.current_position = 0  # 現在の再生位置（秒）
+        self.start_play_time = 0  # 再生開始時刻
 
-        # TTS相关属性
-        self.paused_for_tts = False  # 是否因为TTS而暂停
-        self.pause_start_time = 0  # 暂停开始时间
-        self.total_pause_time = 0  # 总暂停时间
+        # TTS関連属性
+        self.paused_for_tts = False  # TTSのために一時停止したかどうか
+        self.pause_start_time = 0  # 一時停止開始時刻
+        self.total_pause_time = 0  # 総一時停止時間
         self._last_tts_playing = None
 
         # 歌词相关

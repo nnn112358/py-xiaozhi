@@ -4,24 +4,24 @@ from src.iot.thing import Parameter, Thing, ValueType
 
 class Speaker(Thing):
     def __init__(self):
-        super().__init__("Speaker", "当前 AI 机器人的扬声器")
+        super().__init__("Speaker", "現在のAIロボットのスピーカー")
 
-        # 获取当前显示实例的音量作为初始值
+        # 現在のディスプレイインスタンスの音量を初期値として取得
         try:
             app = Application.get_instance()
             self.volume = app.display.current_volume
         except Exception:
-            # 如果获取失败，使用默认值
-            self.volume = 100  # 默认音量
+            # 取得に失敗した場合、デフォルト値を使用
+            self.volume = 100  # デフォルト音量
 
-        # 定义属性
-        self.add_property("volume", "当前音量值", lambda: self.volume)
+        # プロパティを定義
+        self.add_property("volume", "現在の音量値", lambda: self.volume)
 
-        # 定义方法
+        # メソッドを定義
         self.add_method(
             "SetVolume",
-            "设置音量",
-            [Parameter("volume", "0到100之间的整数", ValueType.NUMBER, True)],
+            "音量を設定",
+            [Parameter("volume", "0から100の間の整数", ValueType.NUMBER, True)],
             lambda params: self._set_volume(params["volume"].get_value()),
         )
 
@@ -31,9 +31,9 @@ class Speaker(Thing):
             try:
                 app = Application.get_instance()
                 app.display.update_volume(volume)
-                return {"success": True, "message": f"音量已设置为: {volume}"}
+                return {"success": True, "message": f"音量を{volume}に設定しました"}
             except Exception as e:
-                print(f"设置音量失败: {e}")
-                return {"success": False, "message": f"设置音量失败: {e}"}
+                print(f"音量設定失敗: {e}")
+                return {"success": False, "message": f"音量設定失敗: {e}"}
         else:
-            raise ValueError("音量必须在0-100之间")
+            raise ValueError("音量は0-100の間でなければなりません")

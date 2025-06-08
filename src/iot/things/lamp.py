@@ -1,27 +1,54 @@
+"""
+仮想ランプデバイス
+
+IoTシステムでの照明制御をシミュレートする仮想ランプデバイスです。
+オン/オフの基本的な制御機能を提供し、テストやデモンストレーションに使用できます。
+"""
 from src.iot.thing import Thing
 
 
 class Lamp(Thing):
+    """仮想ランプデバイスクラス.
+    
+    照明のオン/オフ制御を行う仮想IoTデバイスです。
+    電源状態の取得、ランプのオン/オフ操作を提供します。
+    実際のハードウェアを使用せずに照明制御機能をテストできます。
+    
+    Attributes:
+        power (bool): ランプの電源状態（True=オン、False=オフ）
+    """
+    
     def __init__(self):
-        super().__init__("Lamp", "一个测试用的灯")
+        """仮想ランプデバイスを初期化."""
+        super().__init__("Lamp", "テスト用の仮想ランプ")
         self.power = False
 
-        print("[虚拟设备] 灯设备初始化完成")
+        print("[仮想デバイス] ランプデバイスの初期化が完了しました")
 
-        # 定义属性
-        self.add_property("power", "灯是否打开", lambda: self.power)
+        # プロパティを定義
+        self.add_property("power", "ランプの電源状態", lambda: self.power)
 
-        # 定义方法
-        self.add_method("TurnOn", "打开灯", [], lambda params: self._turn_on())
+        # メソッドを定義
+        self.add_method("TurnOn", "ランプをオンにする", [], lambda params: self._turn_on())
 
-        self.add_method("TurnOff", "关闭灯", [], lambda params: self._turn_off())
+        self.add_method("TurnOff", "ランプをオフにする", [], lambda params: self._turn_off())
 
     def _turn_on(self):
+        """ランプをオンにする内部メソッド.
+        
+        Returns:
+            dict: 操作結果を含む辞書
+        """
         self.power = True
-        print("[虚拟设备] 灯已打开")
-        return {"status": "success", "message": "灯已打开"}
+        print("[仮想デバイス] ランプがオンになりました")
+        return {"status": "success", "message": "ランプがオンになりました"}
 
     def _turn_off(self):
+        """ランプをオフにする内部メソッド.
+        
+        Returns:
+            dict: 操作結果を含む辞書
+        """
         self.power = False
-        print("[虚拟设备] 灯已关闭")
-        return {"status": "success", "message": "灯已关闭"}
+        print("[仮想デバイス] ランプがオフになりました")
+        return {"status": "success", "message": "ランプがオフになりました"}
